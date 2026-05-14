@@ -381,7 +381,16 @@ let comboCount = 0;      // 本局連爆次數
 let monsters = [];
 let flyingAttacks = [];   // 飛行動畫（鑰匙 → 收集欄）
 let flyingScores = [];    // 飛行動畫（分數 → 得分累積欄位）
-let multToScoreAnim = { active: false, x: 132, y: 184, tx: 640, ty: 96, progress: 0, value: 1 };
+let multToScoreAnim = {
+  active: false,
+  phase: 'idle',    // 'flying'|'formula'|'combine'|'settle'
+  flyX: 132, flyY: 184,
+  timer: 0,
+  value: 1,         // multiplier
+  baseScore: 0,
+  finalScore: 0,
+  scoreShift: 0,    // 得分數字水平位移（0 → -80）
+};
 let jpWinAnim = { active: false, timer: 0, monsterName: '', value: 0 };
 let jpWinParticles = [];
 
@@ -759,9 +768,16 @@ function endRound() {
   function applyMultiplierToScore() {
     if (multiplier > 1 && winScore > 0) {
       const base = winScore;
-      winScore = Math.floor(base * multiplier);
-      totalScore += Math.floor(base * (multiplier - 1));
-      multToScoreAnim = { active: true, x: 132, y: 184, tx: 640, ty: 96, progress: 0, value: multiplier };
+      const final = Math.floor(base * multiplier);
+      // 不立即結算，由動畫 combine 階段套用
+      multToScoreAnim = {
+        active: true, phase: 'flying', timer: 0,
+        flyX: 132, flyY: 184,
+        scoreShift: 0,
+        value: multiplier,
+        baseScore: base,
+        finalScore: final,
+      };
     }
   }
 
@@ -1271,11 +1287,14 @@ function drawScoreAccumulator(ctx) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#64748b'; ctx.font = '11px Arial';
   ctx.fillText('得分', bx + bw / 2, by + 9);
-  ctx.fillStyle = hasWin ? '#facc15' : '#475569';
-  ctx.font = `bold ${hasWin ? 22 : 20}px Arial`;
-  if (hasWin) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8 * pulse; }
-  ctx.fillText(winScore.toLocaleString(), bx + bw / 2, by + bh / 2 + 5);
-  ctx.shadowBlur = 0;
+  // 動畫期間由 drawMultToScoreAnim 負責繪製數字
+  if (!multToScoreAnim.active) {
+    ctx.fillStyle = hasWin ? '#facc15' : '#475569';
+    ctx.font = `bold ${hasWin ? 22 : 20}px Arial`;
+    if (hasWin) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8 * pulse; }
+    ctx.fillText(winScore.toLocaleString(), bx + bw / 2, by + bh / 2 + 5);
+    ctx.shadowBlur = 0;
+  }
   ctx.restore();
 }
 
@@ -1339,12 +1358,48 @@ function drawFlyingScores(ctx) {
 }
 
 // ── 倍數飛向得分欄（endRound 結算用）──
+const _MULT_CX = 640, _MULT_CY = 96; // 得分欄中心
 function updateMultToScoreAnim() {
   if (!multToScoreAnim.active) return;
-  multToScoreAnim.x += (multToScoreAnim.tx - multToScoreAnim.x) * 0.1;
-  multToScoreAnim.y += (multToScoreAnim.ty - multToScoreAnim.y) * 0.1;
-  multToScoreAnim.progress = Math.min(1, multToScoreAnim.progress + 0.022);
-  if (multToScoreAnim.progress >= 1) multToScoreAnim.active = false;
+  const m = multToScoreAnim;
+  m.timer++;
+
+  if (m.phase === 'flying') {
+    const targetX = _MULT_CX + 90, targetY = _MULT_CY;
+    m.flyX += (targetX - m.flyX) * 0.14;
+    m.flyY += (targetY - m.flyY) * 0.14;
+    m.scoreShift += (-80 - m.scoreShift) * 0.14;
+    const dx = targetX - m.flyX, dy = targetY - m.flyY;
+    if (m.timer >= 35 || (dx*dx + dy*dy) < 25) {
+      m.phase = 'formula';
+      m.timer = 0;
+      m.flyX = targetX; m.flyY = targetY;
+      m.scoreShift = -80;
+    }
+    return;
+  }
+
+  if (m.phase === 'formula') {
+    if (m.timer >= 62) { m.phase = 'combine'; m.timer = 0; }
+    return;
+  }
+
+  if (m.phase === 'combine') {
+    if (m.timer === 1) {
+      // 套用倍數得分
+      const bonus = m.finalScore - m.baseScore;
+      totalScore += bonus;
+      winScore = m.finalScore;
+    }
+    m.flyX += (_MULT_CX - m.flyX) * 0.18;
+    m.scoreShift += (0 - m.scoreShift) * 0.18;
+    if (m.timer >= 28) { m.phase = 'settle'; m.timer = 0; }
+    return;
+  }
+
+  if (m.phase === 'settle') {
+    if (m.timer >= 22) { m.active = false; m.phase = 'idle'; }
+  }
 }
 
 function updateErisMultiplierAnim() {
@@ -1423,14 +1478,64 @@ function updateErisMultiplierAnim() {
 
 function drawMultToScoreAnim(ctx) {
   if (!multToScoreAnim.active) return;
+  const m = multToScoreAnim;
+  const cx = _MULT_CX, cy = _MULT_CY;
   ctx.save();
-  ctx.globalAlpha = Math.max(0, 1 - multToScoreAnim.progress * 1.8);
-  ctx.fillStyle = '#ffd700';
-  ctx.font = 'bold 30px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 16;
-  ctx.fillText('×' + multToScoreAnim.value, multToScoreAnim.x, multToScoreAnim.y);
-  ctx.shadowBlur = 0;
+
+  if (m.phase === 'flying') {
+    // 得分數字左移
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#facc15'; ctx.font = 'bold 22px Arial';
+    ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8;
+    ctx.fillText(m.baseScore.toLocaleString(), cx + m.scoreShift, cy);
+    ctx.shadowBlur = 0;
+    // 飛行中的 ×N
+    ctx.fillStyle = '#ffd700'; ctx.font = 'bold 26px Arial';
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 14;
+    ctx.fillText('×' + m.value, m.flyX, m.flyY);
+    ctx.shadowBlur = 0;
+
+  } else if (m.phase === 'formula') {
+    const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 140);
+    // 得分左側
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#facc15'; ctx.font = 'bold 24px Arial';
+    ctx.shadowColor = '#facc15'; ctx.shadowBlur = 8;
+    ctx.fillText(m.baseScore.toLocaleString(), cx - 14, cy);
+    ctx.shadowBlur = 0;
+    // × 符號
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 20px Arial';
+    ctx.fillText('×', cx + 14, cy);
+    // 倍數右側（脈衝發光）
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffd700'; ctx.font = `bold ${Math.floor(22 + 4 * pulse)}px Arial`;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 16 * pulse;
+    ctx.fillText(m.value, cx + 30, cy);
+    ctx.shadowBlur = 0;
+
+  } else if (m.phase === 'combine') {
+    const t = m.timer / 28;
+    const pulse = 1 + 0.25 * Math.sin(t * Math.PI);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#facc15';
+    ctx.font = `bold ${Math.floor(22 * pulse)}px Arial`;
+    ctx.shadowColor = '#facc15'; ctx.shadowBlur = 18 * pulse;
+    ctx.fillText(m.finalScore.toLocaleString(), cx, cy);
+    ctx.shadowBlur = 0;
+
+  } else if (m.phase === 'settle') {
+    const alpha = 1 - m.timer / 22;
+    ctx.globalAlpha = Math.max(0, alpha);
+    const pulse = 1 + 0.12 * Math.sin(m.timer * 0.6);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#facc15';
+    ctx.font = `bold ${Math.floor(24 * pulse)}px Arial`;
+    ctx.shadowColor = '#facc15'; ctx.shadowBlur = 14;
+    ctx.fillText(m.finalScore.toLocaleString(), cx, cy);
+    ctx.shadowBlur = 0;
+  }
+
   ctx.restore();
 }
 
@@ -2323,10 +2428,10 @@ function update(dt) {
     case STATE.REVEALING:   updateRevealing(); break;
     case STATE.UNLOCK_ANIM: currentState = STATE.CHECKING; break;
     case STATE.IDLE:
-      if (!erisMultiplierAnim.active && inFG && fgSpinsLeft > 0) {
+      if (!erisMultiplierAnim.active && !multToScoreAnim.active && inFG && fgSpinsLeft > 0) {
         autoSpinDelay--;
         if (autoSpinDelay <= 0) startSpin();
-      } else if (!erisMultiplierAnim.active && !inFG && !showFGEndPanel && isAutoSpinning) {
+      } else if (!erisMultiplierAnim.active && !multToScoreAnim.active && !inFG && !showFGEndPanel && isAutoSpinning) {
         autoSpinDelay--;
         if (autoSpinDelay <= 0) startSpin();
       }
