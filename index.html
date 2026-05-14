@@ -1368,18 +1368,20 @@ function updateMultToScoreAnim() {
     const targetX = _MULT_CX + 90, targetY = _MULT_CY;
     m.flyX += (targetX - m.flyX) * 0.14;
     m.flyY += (targetY - m.flyY) * 0.14;
-    m.scoreShift += (-80 - m.scoreShift) * 0.14;
+    // 線性平移：35幀內從0移到-45
+    m.scoreShift = -45 * Math.min(1, m.timer / 35);
     const dx = targetX - m.flyX, dy = targetY - m.flyY;
     if (m.timer >= 35 || (dx*dx + dy*dy) < 25) {
       m.phase = 'formula';
       m.timer = 0;
       m.flyX = targetX; m.flyY = targetY;
-      m.scoreShift = -80;
+      m.scoreShift = -45;
     }
     return;
   }
 
   if (m.phase === 'formula') {
+    m.scoreShift = -45;
     if (m.timer >= 62) { m.phase = 'combine'; m.timer = 0; }
     return;
   }
@@ -1392,7 +1394,8 @@ function updateMultToScoreAnim() {
       winScore = m.finalScore;
     }
     m.flyX += (_MULT_CX - m.flyX) * 0.18;
-    m.scoreShift += (0 - m.scoreShift) * 0.18;
+    // 線性回位：28幀內從-45回到0
+    m.scoreShift = -45 * Math.max(0, 1 - m.timer / 28);
     if (m.timer >= 28) { m.phase = 'settle'; m.timer = 0; }
     return;
   }
