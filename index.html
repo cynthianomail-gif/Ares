@@ -225,12 +225,15 @@
             </table>
 
             <h3>▌ 鑰匙收集與獎勵</h3>
-            <p>• 連爆後底列隨機出現 鑰匙 / WILD / 倍數，每局重新計算</p>
+            <p>• 連爆後底列隨機出現 鑰匙 / WILD / 倍數 / 皇冠 / 項鍊，每局重新計算</p>
             <p>• 累積 <b>2 把</b>：🦅 禿鷹&獵犬 — 消除盤面低階符號</p>
             <p>• 累積 <b>3 把</b>：🍎 厄里斯 — 全盤消除並隨機加乘倍數</p>
             <p>• 累積 <b>4 把</b>：⚔️ 厄倪俄 — 進入 Free Game 10 局</p>
-            <p>• 累積 <b>6 把</b>：⚡👑 宙斯 &amp; 赫拉 — 抽牌選擇，獲得對應 JP 彩金</p>
             <p>• 鑰匙數於每局 Spin 開始時重置</p>
+            <h3>▌ 宙斯 &amp; 赫拉 JP</h3>
+            <p>• 底列出現 👑 皇冠：累積 <b>3 個</b>觸發 ⚡ 宙斯 JP</p>
+            <p>• 底列出現 💍 項鍊：累積 <b>3 個</b>觸發 👑 赫拉 JP</p>
+            <p>• 皇冠與項鍊跨局累積，JP 觸發後重置</p>
           </div>
         </div>
     </div>
@@ -334,7 +337,7 @@ const PAYLINES = [
 ];
 
 // 底列特殊格類型（只保留 KEY 和 WILD，倍數改為圖示隱藏屬性）
-const SPECIAL = { NONE: 0, WILD: WILD_ID, KEY: 7 };
+const SPECIAL = { NONE: 0, WILD: WILD_ID, KEY: 7, CROWN: 8, NECKLACE: 9 };
 const PROCESSED = 99;
 
 // 圖示隱藏倍數權重（cell.mult）
@@ -408,6 +411,9 @@ let bossCardPick = {
 
 // === 鑰匙收集 & 寶箱系統 ===
 let keyCount = 0; // 本局累積鑰匙數
+let crownCount = 0;   // 宙斯：累積皇冠數（每局重置，到3觸發JP）
+let necklaceCount = 0; // 赫拉：累積項鍊數（每局重置，到3觸發JP）
+let pendingMultToScoreApply = null; // JP動畫播放中時暫存倍數結算資料
 let triggeredChests = new Set(); // 本局已觸發的機制 idx（每次 SPIN 重置）
 let chestUnlockAnim = { active: false, timer: 0, idx: -1 }; // 解鎖動畫
 const CHEST_UNLOCK_FRAMES = 150;
@@ -434,7 +440,6 @@ const CHESTS = [
   { label: '禿鷹&獵犬', keys: 2, color: '#7c2d12', glowColor: '#ea580c', textColor: '#fdba74', icon: '🦅' },
   { label: '厄里斯',    keys: 3, color: '#1e3a5f', glowColor: '#94a3b8', textColor: '#e2e8f0', icon: '🍎' },
   { label: '厄倪俄',    keys: 4, color: '#713f12', glowColor: '#eab308', textColor: '#fef08a', icon: '⚔️' },
-  { label: '宙斯 & 赫拉', keys: 6, color: '#1a1a2e', glowColor: '#facc15', textColor: '#fde68a', icon: '⚡' },
 ];
 
 let particles = [];
@@ -576,6 +581,9 @@ function startSpin() {
   if (!inFG) multiplier = 1; // FG 期間倍數持續累積，僅 NG 新一局才重置
   fgMultCollectedThisRound = false;
   keyCount = 0;
+  crownCount = 0;
+  necklaceCount = 0;
+  pendingMultToScoreApply = null;
   triggeredChests = new Set();
   heraSymbolRestrict = false; // 取消厄里斯符號限制
   chestUnlockAnim = { active: false, timer: 0, idx: -1 };
@@ -601,12 +609,11 @@ function startSpin() {
         const fgMultOpts = [2, 3, 5, 10];
         forcedMult = fgMultOpts[Math.floor(Math.random() * fgMultOpts.length)];
       }
+    } else if (forceSpinType === 'crown' || forceSpinType === 'necklace') {
+      forceKeyTarget = 3;
     } else if (forceSpinType.startsWith('key_')) {
-      const kidx = parseInt(forceSpinType[4]); // 0..3
+      const kidx = parseInt(forceSpinType[4]); // 0..2
       forceKeyTarget = CHESTS[kidx] ? CHESTS[kidx].keys : 1;
-      if (kidx === 3) {
-        forceLineRows2 = PAYLINES[0].slice(); // 中列 [1,1,1,1,1] 也全部相同圖示
-      }
     }
   } else if (inFG && fgAssistMode) {
     // 強開厄倪俄進FG後，測試期間大多數局保留至少一條連線
@@ -769,15 +776,16 @@ function endRound() {
     if (multiplier > 1 && winScore > 0) {
       const base = winScore;
       const final = Math.floor(base * multiplier);
-      // 不立即結算，由動畫 combine 階段套用
-      multToScoreAnim = {
-        active: true, phase: 'flying', timer: 0,
-        flyX: 132, flyY: 184,
-        scoreShift: 0,
-        value: multiplier,
-        baseScore: base,
-        finalScore: final,
-      };
+      if (jpWinAnim.active) {
+        // JP 動畫播放中，等 JP 結束後再觸發
+        pendingMultToScoreApply = { base, final, mult: multiplier };
+      } else {
+        multToScoreAnim = {
+          active: true, phase: 'flying', timer: 0,
+          flyX: 132, flyY: 184, scoreShift: 0,
+          value: multiplier, baseScore: base, finalScore: final,
+        };
+      }
     }
   }
 
@@ -798,8 +806,6 @@ function endRound() {
   }
 
   // ── NG 流程 ──
-  // force key_3 時確保鑰匙數達到門檻（COLS=5 每次最多生成 5 把，補足到 6）
-  if (forceSpinType === 'key_3') keyCount = Math.max(keyCount, CHESTS[3].keys);
   const savedKeyCount = keyCount;
   keyCount = 0;
 
@@ -947,7 +953,8 @@ function updatePopping() {
   // 防止同格重疊：底列格同時帶倍數又分配到 KEY/WILD → 移除倍數（KEY/WILD 優先）
   multFlightSeq = multFlightSeq.filter(mf =>
     !(mf.r === ROWS - 1 &&
-      (bottomSpecial[mf.c] === SPECIAL.KEY || bottomSpecial[mf.c] === SPECIAL.WILD))
+      (bottomSpecial[mf.c] === SPECIAL.KEY || bottomSpecial[mf.c] === SPECIAL.WILD ||
+       bottomSpecial[mf.c] === SPECIAL.CROWN || bottomSpecial[mf.c] === SPECIAL.NECKLACE))
   );
 
   // 建立統一觸發序列（倍數 + KEY + WILD 合併，按 c 再按 r 排序）
@@ -957,9 +964,12 @@ function updatePopping() {
   }
   for (let c = 0; c < COLS; c++) {
     const sp = bottomSpecial[c];
-    if (sp === SPECIAL.KEY || sp === SPECIAL.WILD) {
-      items.push({ type: sp === SPECIAL.KEY ? 'key' : 'wild',
-                   c, r: ROWS - 1,
+    if (sp === SPECIAL.KEY || sp === SPECIAL.WILD || sp === SPECIAL.CROWN || sp === SPECIAL.NECKLACE) {
+      let type = 'wild';
+      if (sp === SPECIAL.KEY) type = 'key';
+      else if (sp === SPECIAL.CROWN) type = 'crown';
+      else if (sp === SPECIAL.NECKLACE) type = 'necklace';
+      items.push({ type, c, r: ROWS - 1,
                    fx: GRID_X + c * CELL_SIZE + CELL_SIZE / 2,
                    fy: GRID_Y + (ROWS - 1) * CELL_SIZE + CELL_SIZE / 2 });
     }
@@ -1027,7 +1037,8 @@ function applyGravity() {
     for (let i = 0; i < emptySpaces; i++) {
       // 底列若已是 KEY / WILD，不賦予隱藏倍數
       const isKeyOrWild = (i === ROWS - 1) &&
-        (bottomSpecial[c] === SPECIAL.KEY || bottomSpecial[c] === SPECIAL.WILD);
+        (bottomSpecial[c] === SPECIAL.KEY || bottomSpecial[c] === SPECIAL.WILD ||
+         bottomSpecial[c] === SPECIAL.CROWN || bottomSpecial[c] === SPECIAL.NECKLACE);
       board[c][i] = {
         id: randomSymId(),
         mult: isKeyOrWild ? 0 : rollCellMult(),
@@ -1057,9 +1068,11 @@ function updateGravity() {
 
 // === Task 9：底列特殊格（只剩 KEY 和 WILD）===
 const SPECIAL_WEIGHTS = [
-  { type: SPECIAL.WILD, w: 10 },
-  { type: SPECIAL.KEY,  w:  8 },
-  { type: SPECIAL.NONE, w: 82 },
+  { type: SPECIAL.WILD,     w: 10 },
+  { type: SPECIAL.KEY,      w:  8 },
+  { type: SPECIAL.CROWN,    w:  4 },
+  { type: SPECIAL.NECKLACE, w:  4 },
+  { type: SPECIAL.NONE,     w: 74 },
 ];
 const SPECIAL_WEIGHTS_TOTAL = SPECIAL_WEIGHTS.reduce((s, e) => s + e.w, 0);
 
@@ -1075,6 +1088,18 @@ function spawnBottomSpecials(affectedCols) {
           chosen = SPECIAL.WILD; forceUsed = true;
         } else if (forceSpinType === 'key') {
           chosen = SPECIAL.KEY; forceUsed = true;
+        } else if (forceSpinType === 'crown') {
+          if (forceKeySpawned < forceKeyTarget) {
+            chosen = SPECIAL.CROWN;
+            forceKeySpawned++;
+            if (forceKeySpawned >= forceKeyTarget) forceUsed = true;
+          }
+        } else if (forceSpinType === 'necklace') {
+          if (forceKeySpawned < forceKeyTarget) {
+            chosen = SPECIAL.NECKLACE;
+            forceKeySpawned++;
+            if (forceKeySpawned >= forceKeyTarget) forceUsed = true;
+          }
         } else if (forceSpinType.startsWith('key_')) {
           if (forceKeySpawned < forceKeyTarget) {
             chosen = SPECIAL.KEY;
@@ -1082,16 +1107,20 @@ function spawnBottomSpecials(affectedCols) {
             if (forceKeySpawned >= forceKeyTarget) forceUsed = true;
           }
         }
+      } else if (forceSpinType === 'crown') {
+        if (chosen === SPECIAL.CROWN) chosen = SPECIAL.NONE;
+      } else if (forceSpinType === 'necklace') {
+        if (chosen === SPECIAL.NECKLACE) chosen = SPECIAL.NONE;
       } else if (forceSpinType.startsWith('key_')) {
         // 已達目標數量：禁止隨機再出現 KEY，確保精確數量
         if (chosen === SPECIAL.KEY) chosen = SPECIAL.NONE;
       }
     }
-    if (inFG && chosen === SPECIAL.KEY) chosen = SPECIAL.NONE; // FG 不出鑰匙
+    if (inFG && (chosen === SPECIAL.KEY || chosen === SPECIAL.CROWN || chosen === SPECIAL.NECKLACE)) chosen = SPECIAL.NONE; // FG 不出鑰匙/皇冠/項鍊
     bottomSpecial[c] = chosen;
     bottomSpecialAnim[c] = chosen !== SPECIAL.NONE ? 1 : 0;
     // KEY / WILD 與倍數不共存：清掉底列該格的隱藏倍數
-    if ((chosen === SPECIAL.KEY || chosen === SPECIAL.WILD) && board[c] && board[c][ROWS - 1]) {
+    if ((chosen === SPECIAL.KEY || chosen === SPECIAL.WILD || chosen === SPECIAL.CROWN || chosen === SPECIAL.NECKLACE) && board[c] && board[c][ROWS - 1]) {
       board[c][ROWS - 1].mult = 0;
     }
   });
@@ -1100,25 +1129,13 @@ function spawnBottomSpecials(affectedCols) {
   revealSeqIdx = 0;
   revealColTimer = 0;
 
-  // force key_3：ROW2 最多 5 把，差的從 ROW1 位置飛出補足
-  if (forceSpinType === 'key_3' && forceKeySpawned < forceKeyTarget) {
-    const need = forceKeyTarget - forceKeySpawned;
-    for (let i = 0; i < need; i++) {
-      const col = i % COLS;
-      const fromX = GRID_X + col * CELL_SIZE + CELL_SIZE / 2;
-      const fromY = GRID_Y + 1 * CELL_SIZE + CELL_SIZE / 2; // ROW1
-      collectKey(fromX, fromY);
-    }
-    forceKeySpawned = forceKeyTarget;
-    forceUsed = true;
-  }
 }
 
 function drawBottomSpecials(ctx) {
   for (let c = 0; c < COLS; c++) {
     const sp = bottomSpecial[c];
     // REVEALING 期間由 drawRevealOverlay 統一處理 KEY/WILD 顯示
-    if (currentState === STATE.REVEALING && (sp === SPECIAL.KEY || sp === SPECIAL.WILD)) continue;
+    if (currentState === STATE.REVEALING && (sp === SPECIAL.KEY || sp === SPECIAL.WILD || sp === SPECIAL.CROWN || sp === SPECIAL.NECKLACE)) continue;
     if (sp === SPECIAL.NONE || sp === PROCESSED) continue;
 
     const anim = bottomSpecialAnim[c];
@@ -1130,7 +1147,7 @@ function drawBottomSpecials(ctx) {
     // hold 階段加強脈衝（用統一序列判斷）
     const cur = unifiedRevealSeq[unifiedRevealIdx];
     const isHolding = (currentState === STATE.REVEALING &&
-                       cur && (cur.type === 'key' || cur.type === 'wild') &&
+                       cur && (cur.type === 'key' || cur.type === 'wild' || cur.type === 'crown' || cur.type === 'necklace') &&
                        cur.c === c && unifiedRevealTimer < cur.holdFrames);
     const pulse = isHolding ? (0.8 + 0.2 * Math.sin(Date.now() / 110)) : 1;
 
@@ -1147,8 +1164,10 @@ function drawBottomSpecials(ctx) {
 
     let label = '';
     let textColor = '#ffd700';
-    if (sp === SPECIAL.KEY)  { label = '🔑'; textColor = '#fde68a'; }
-    else if (sp === SPECIAL.WILD) { label = 'W'; }
+    if (sp === SPECIAL.KEY)      { label = '🔑'; textColor = '#fde68a'; }
+    else if (sp === SPECIAL.WILD)     { label = 'W'; }
+    else if (sp === SPECIAL.CROWN)    { label = '👑'; textColor = '#facc15'; }
+    else if (sp === SPECIAL.NECKLACE) { label = '💍'; textColor = '#f472b6'; }
 
     ctx.fillStyle = textColor;
     ctx.font = `bold ${sp === SPECIAL.KEY ? 32 : 28}px Arial`;
@@ -1187,6 +1206,12 @@ function updateRevealing() {
         tx: 132, ty: 184, progress: 0 }); // 飛向左側倍數欄位
     } else if (item.type === 'key') {
       collectKey(item.fx, item.fy);
+      bottomSpecial[item.c] = PROCESSED;
+    } else if (item.type === 'crown') {
+      collectCrown(item.fx, item.fy);
+      bottomSpecial[item.c] = PROCESSED;
+    } else if (item.type === 'necklace') {
+      collectNecklace(item.fx, item.fy);
       bottomSpecial[item.c] = PROCESSED;
     } else if (item.type === 'wild') {
       board[item.c][ROWS - 1] = { id: WILD_ID, mult: 0, yOffset: 0,
@@ -1680,6 +1705,42 @@ function collectKey(fromX, fromY) {
   flyingAttacks.push({ x: fromX, y: fromY, tx, ty, progress: 0, isKey: true });
 }
 
+function collectCrown(fromX, fromY) {
+  // 目標：左側宙斯卡片
+  flyingAttacks.push({ x: fromX, y: fromY, tx: 130, ty: 99, progress: 0, isCrown: true });
+}
+
+function collectNecklace(fromX, fromY) {
+  // 目標：右側赫拉卡片
+  flyingAttacks.push({ x: fromX, y: fromY, tx: 1147, ty: 99, progress: 0, isNecklace: true });
+}
+
+function rewardZeusJP() {
+  crownCount = 0;
+  const m = monsters.find(b => b.name === '宙斯');
+  const val = m ? m.jackpot : 99999;
+  totalScore += val;
+  jpWinAnim = { active: true, timer: 300, monsterName: '⚡ 宙斯', value: val };
+  for (let i = 0; i < 70; i++) {
+    const ang = Math.random() * Math.PI * 2, spd = 4 + Math.random() * 8;
+    jpWinParticles.push({ x: 640, y: 360, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+      life: 160, maxLife: 160, color: 'hsl(' + Math.floor(Math.random()*60) + ',95%,65%)', size: 5 + Math.random()*6 });
+  }
+}
+
+function rewardHeraJP() {
+  necklaceCount = 0;
+  const m = monsters.find(b => b.name === '赫拉');
+  const val = m ? m.jackpot : 888888;
+  totalScore += val;
+  jpWinAnim = { active: true, timer: 300, monsterName: '👑 赫拉', value: val };
+  for (let i = 0; i < 70; i++) {
+    const ang = Math.random() * Math.PI * 2, spd = 4 + Math.random() * 8;
+    jpWinParticles.push({ x: 640, y: 360, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+      life: 160, maxLife: 160, color: 'hsl(' + Math.floor(280 + Math.random()*80) + ',95%,65%)', size: 5 + Math.random()*6 });
+  }
+}
+
 // 兩張一樣大的 Boss 卡（無血量）
 // 宙斯：左側面板；赫拉：右側收集欄上方
 function drawBossCards(ctx) {
@@ -1698,8 +1759,10 @@ function drawBossCards(ctx) {
     ctx.fillStyle = '#0f172a';
     ctx.beginPath(); ctx.roundRect(bx, by, BW, BH, 12); ctx.fill();
 
-    // 發光邊框（4 把鑰匙時額外爆發光）
-    const bossUnlocked = keyCount >= 6;
+    // 收集進度與解鎖狀態
+    const collectCount = name === '宙斯' ? crownCount : necklaceCount;
+    const collectIcon  = name === '宙斯' ? '👑' : '💍';
+    const bossUnlocked = collectCount >= 3;
     const bPulse = bossUnlocked ? 0.6 + 0.4 * Math.sin(Date.now() / 180) : 1;
     ctx.strokeStyle = m.color;
     ctx.lineWidth = bossUnlocked ? 3 : 2;
@@ -1716,15 +1779,30 @@ function drawBossCards(ctx) {
     // 名稱
     ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 17px Arial';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(name, bx + 82, by + 14);
+    ctx.fillText(name, bx + 82, by + 10);
 
     // JP 金額
     ctx.fillStyle = '#fde68a'; ctx.font = 'bold 13px Arial';
-    ctx.fillText('JP  ' + m.jackpot.toLocaleString(), bx + 82, by + 38);
+    ctx.fillText('JP  ' + m.jackpot.toLocaleString(), bx + 82, by + 32);
 
-    // 底部標籤
-    ctx.fillStyle = m.color + 'cc'; ctx.font = '11px Arial';
-    ctx.fillText('🔑 × 6 解鎖', bx + 82, by + 62);
+    // 收集進度點（3 顆）
+    for (let d = 0; d < 3; d++) {
+      const dotX = bx + 82 + d * 22;
+      const dotY = by + 62;
+      ctx.fillStyle = d < collectCount ? m.color : '#1e293b';
+      ctx.strokeStyle = d < collectCount ? m.color : '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(dotX, dotY, 8, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      if (d < collectCount) {
+        ctx.font = '10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(collectIcon, dotX, dotY);
+      }
+    }
+    ctx.font = '10px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('× 3', bx + 152, by + 62);
 
     ctx.restore();
   });
@@ -1751,10 +1829,8 @@ function drawChestPanel(ctx) {
 
   // 只亮當前達到的最高門檻那一項
   let activeChestIdx = -1;
-  if (keyCount < CHESTS[3].keys) { // 第 6 把觸發宙斯赫拉後全部暗掉
-    for (let i = 0; i < PANEL_CHESTS.length; i++) {
-      if (keyCount >= PANEL_CHESTS[i].keys) activeChestIdx = i;
-    }
+  for (let i = 0; i < PANEL_CHESTS.length; i++) {
+    if (keyCount >= PANEL_CHESTS[i].keys) activeChestIdx = i;
   }
 
   PANEL_CHESTS.forEach((chest, i) => {
@@ -1834,7 +1910,7 @@ function drawChestPanel(ctx) {
   ctx.beginPath(); ctx.roundRect(px, kby, pw, 22, 6); ctx.fill();
   ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('本局 🔑 × ' + keyCount + (keyCount >= 6 ? '  ⚡ Boss 解鎖！' : ''), px + pw / 2, kby + 11);
+  ctx.fillText('本局 🔑 × ' + keyCount, px + pw / 2, kby + 11);
   ctx.restore();
 }
 
@@ -1848,7 +1924,6 @@ function applyChestReward(idx) {
     case 0: rewardClearLowestSymbol(); break; // 禿鷹&獵犬
     case 1: rewardErisMultiplier();    break; // 厄里斯
     case 2: rewardFreeGame();          break; // 厄倪俄
-    case 3: rewardJackpot();           break; // 宙斯&赫拉
   }
 }
 
@@ -2312,8 +2387,17 @@ function updateFlyingAttacks() {
     fa.progress = Math.min(1, fa.progress + 0.03);
     if (fa.progress >= 1) {
       if (fa.isKey) {
-        // 鑰匙抵達收集欄 → 累積計數（最多4）
         keyCount = Math.min(6, keyCount + 1);
+      } else if (fa.isCrown) {
+        if (crownCount < 3) {
+          crownCount++;
+          if (crownCount >= 3) rewardZeusJP();
+        }
+      } else if (fa.isNecklace) {
+        if (necklaceCount < 3) {
+          necklaceCount++;
+          if (necklaceCount >= 3) rewardHeraJP();
+        }
       } else if (fa.target) {
         // Boss 攻擊命中
         const m = fa.target;
@@ -2348,12 +2432,16 @@ function drawFlyingAttacks(ctx) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (fa.isKey) {
-      ctx.shadowColor = '#fbbf24';
-      ctx.shadowBlur = 16;
+      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 16;
       ctx.fillText('🔑', fa.x, fa.y);
+    } else if (fa.isCrown) {
+      ctx.shadowColor = '#facc15'; ctx.shadowBlur = 16;
+      ctx.fillText('👑', fa.x, fa.y);
+    } else if (fa.isNecklace) {
+      ctx.shadowColor = '#f472b6'; ctx.shadowBlur = 16;
+      ctx.fillText('💍', fa.x, fa.y);
     } else {
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 14;
       ctx.fillText('⚔️', fa.x, fa.y);
     }
     ctx.shadowBlur = 0;
@@ -2367,7 +2455,18 @@ function updateJPWinAnim() {
   jpWinParticles = jpWinParticles.filter(p => {
     p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--; return p.life > 0;
   });
-  if (jpWinAnim.timer <= 0) jpWinAnim.active = false;
+  if (jpWinAnim.timer <= 0) {
+    jpWinAnim.active = false;
+    if (pendingMultToScoreApply) {
+      const p = pendingMultToScoreApply;
+      pendingMultToScoreApply = null;
+      multToScoreAnim = {
+        active: true, phase: 'flying', timer: 0,
+        flyX: 132, flyY: 184, scoreShift: 0,
+        value: p.mult, baseScore: p.base, finalScore: p.final,
+      };
+    }
+  }
 }
 
 function drawJPWinAnim(ctx) {
@@ -2422,6 +2521,7 @@ function update(dt) {
   updateJPWinAnim();
   updateBossCardPick();
   updateChestUnlockAnim();
+  if (jpWinAnim.active) return; // JP 播放中：凍結狀態機（補盤/結算全部等待）
   switch (currentState) {
     case STATE.SPINNING:    updateSpinning(); break;
     case STATE.CHECKING:    checkPaylines(); break;
@@ -2431,10 +2531,10 @@ function update(dt) {
     case STATE.REVEALING:   updateRevealing(); break;
     case STATE.UNLOCK_ANIM: currentState = STATE.CHECKING; break;
     case STATE.IDLE:
-      if (!erisMultiplierAnim.active && !multToScoreAnim.active && inFG && fgSpinsLeft > 0) {
+      if (!erisMultiplierAnim.active && !multToScoreAnim.active && !pendingMultToScoreApply && inFG && fgSpinsLeft > 0) {
         autoSpinDelay--;
         if (autoSpinDelay <= 0) startSpin();
-      } else if (!erisMultiplierAnim.active && !multToScoreAnim.active && !inFG && !showFGEndPanel && isAutoSpinning) {
+      } else if (!erisMultiplierAnim.active && !multToScoreAnim.active && !pendingMultToScoreApply && !inFG && !showFGEndPanel && isAutoSpinning) {
         autoSpinDelay--;
         if (autoSpinDelay <= 0) startSpin();
       }
@@ -2645,8 +2745,10 @@ function drawRevealOverlay(ctx) {
 
     // 標籤文字
     let label = '';
-    if (item.type === 'key')  label = '🔑';
-    else if (item.type === 'wild') label = 'W';
+    if (item.type === 'key')           label = '🔑';
+    else if (item.type === 'crown')    label = '👑';
+    else if (item.type === 'necklace') label = '💍';
+    else if (item.type === 'wild')     label = 'W';
     else label = item.value + 'x';
 
     ctx.fillStyle = '#ffd700';
@@ -2749,7 +2851,7 @@ function drawBottomBar(ctx) {
   ctx.fillText('強開', 189, 670);
   ctx.fillStyle = hasForce ? '#fbbf24' : '#64748b';
   ctx.font = '11px Arial';
-  const _keyLabels = { key_0: '禿鷹', key_1: '厄里斯', key_2: '厄倪俄', key_3: '宙斯', fg_test: 'FG測試' };
+  const _keyLabels = { key_0: '禿鷹', key_1: '厄里斯', key_2: '厄倪俄', crown: '宙斯👑', necklace: '赫拉💍' };
   const forceLabel = forceSpinType === 'mult' ? '倍數' : forceSpinType === 'wild' ? 'WILD' : _keyLabels[forceSpinType] || '未設定';
   ctx.fillText(forceLabel, 189, 695);
 
@@ -2770,12 +2872,13 @@ function drawForceMenu(ctx) {
 
   const menuX = 148, menuW = 110;
   const options = [
-    { label: '⚡ 倍數',    type: 'mult'  },
-    { label: '✦ WILD',    type: 'wild'  },
+    { label: '⚡ 倍數',    type: 'mult'     },
+    { label: '✦ WILD',    type: 'wild'     },
     { label: '🦅 禿鷹&獵犬', type: 'key_0' },
-    { label: '🍎 厄里斯',   type: 'key_1' },
-    { label: '⚔️ 厄倪俄',  type: 'key_2' },
-    { label: '⚡ 宙斯&赫拉', type: 'key_3' },
+    { label: '🍎 厄里斯',   type: 'key_1'  },
+    { label: '⚔️ 厄倪俄',  type: 'key_2'  },
+    { label: '👑 宙斯皇冠', type: 'crown'   },
+    { label: '💍 赫拉項鍊', type: 'necklace'},
   ];
   const menuH = 10 + options.length * 40 - 8 + 10; // 252px for 6 items
   const menuY = 658 - menuH - 6;  // 上浮到 強開 按鈕上方
@@ -2927,7 +3030,7 @@ canvas.addEventListener('click', e => {
   // 強開選單選項（優先判斷，避免被按鈕覆蓋）
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
-    const options = ['mult', 'wild', 'key_0', 'key_1', 'key_2', 'key_3'];
+    const options = ['mult', 'wild', 'key_0', 'key_1', 'key_2', 'crown', 'necklace'];
     const menuH = 10 + options.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
     let hit = false;
