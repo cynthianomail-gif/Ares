@@ -2016,15 +2016,6 @@ function drawChestPanel(ctx) {
     ctx.restore();
   });
 
-  // ── 底部：本局號角計數 ──
-  ctx.save();
-  const kby = startY + panelH + 10;
-  ctx.fillStyle = 'rgba(15,23,42,0.75)';
-  ctx.beginPath(); ctx.roundRect(px, kby, pw, 22, 6); ctx.fill();
-  ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('本局 📯 × ' + keyCount, px + pw / 2, kby + 11);
-  ctx.restore();
 }
 
 // ====================================================
