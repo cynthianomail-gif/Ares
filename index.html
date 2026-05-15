@@ -208,7 +208,7 @@
             <p>• 每次連爆得分即時乘以當前倍數</p>
 
             <h3>▌ Free Game（FG）</h3>
-            <p>• 由 <b>厄倪俄</b> 鑰匙獎勵觸發，共 <b>10 局</b></p>
+            <p>• 由 <b>厄倪俄</b> 號角獎勵觸發，共 <b>10 局</b></p>
             <p>• FG 期間倍數持續累積，不重置</p>
             <p>• 每局結束後以累積倍數計算本次 FG 總得分</p>
           </div>
@@ -224,12 +224,12 @@
               <tr><td>不屈戰魂</td><td>×2</td><td>×0.4</td><td>×0.1</td></tr>
             </table>
 
-            <h3>▌ 鑰匙收集與獎勵</h3>
-            <p>• 連爆後底列隨機出現 鑰匙 / WILD / 倍數 / 皇冠 / 項鍊，每局重新計算</p>
+            <h3>▌ 號角收集與獎勵</h3>
+            <p>• 連爆後底列隨機出現 號角 / WILD / 倍數 / 皇冠 / 項鍊，每局重新計算</p>
             <p>• 累積 <b>2 把</b>：🦅 禿鷹&獵犬 — 消除盤面低階符號</p>
             <p>• 累積 <b>3 把</b>：🍎 厄里斯 — 全盤消除並隨機加乘倍數</p>
             <p>• 累積 <b>4 把</b>：⚔️ 厄倪俄 — 進入 Free Game 10 局</p>
-            <p>• 鑰匙數於每局 Spin 開始時重置</p>
+            <p>• 號角數於每局 Spin 開始時重置</p>
             <h3>▌ 宙斯 &amp; 赫拉 JP</h3>
             <p>• 底列出現 👑 皇冠：累積 <b>3 個</b>觸發 ⚡ 宙斯 JP</p>
             <p>• 底列出現 💍 項鍊：累積 <b>3 個</b>觸發 👑 赫拉 JP</p>
@@ -382,7 +382,7 @@ let comboCount = 0;      // 本局連爆次數
 
 // === 怪獸系統 ===
 let monsters = [];
-let flyingAttacks = [];   // 飛行動畫（鑰匙 → 收集欄）
+let flyingAttacks = [];   // 飛行動畫（號角 → 收集欄）
 let flyingScores = [];    // 飛行動畫（分數 → 得分累積欄位）
 let multToScoreAnim = {
   active: false,
@@ -409,8 +409,8 @@ let bossCardPick = {
   resultTimer: 0,
 };
 
-// === 鑰匙收集 & 寶箱系統 ===
-let keyCount = 0; // 本局累積鑰匙數
+// === 號角收集 & 寶箱系統 ===
+let keyCount = 0; // 本局累積號角數
 let crownCount = 0;   // 宙斯：累積皇冠數（每局重置，到3觸發JP）
 let necklaceCount = 0; // 赫拉：累積項鍊數（每局重置，到3觸發JP）
 let pendingMultToScoreApply = null; // JP動畫播放中時暫存倍數結算資料
@@ -488,8 +488,8 @@ let revealColTimer = 0;   // 目前欄位的計時器
 
 let forceSpinType = null;     // null | 'mult' | 'wild' | 'key_0'..'key_3'
 let forceUsed = false;
-let forceKeyTarget = 0;       // 強開鑰匙：目標鑰匙數量
-let forceKeySpawned = 0;      // 已生成的鑰匙數
+let forceKeyTarget = 0;       // 強開號角：目標號角數量
+let forceKeySpawned = 0;      // 已生成的號角數
 let showForceMenu = false;
 let forceLineRows = null;     // 強開時決定的中獎 payline（每列對應的 row），null = 不強制
 let forceLineRows2 = null;    // key_3 強開時額外強制的第二列
@@ -821,14 +821,14 @@ function endRound() {
 
   if (forceSpinType && forceSpinType.startsWith('key_')) {
     const forcedIdx = parseInt(forceSpinType[4]);
-    rewardIdx = forcedIdx; // 強開直接使用指定獎勵，不受鑰匙數量門檻限制
+    rewardIdx = forcedIdx; // 強開直接使用指定獎勵，不受號角數量門檻限制
     forceWasKey2 = (forceSpinType === 'key_2');
-    forceSpinType = null; // 消費強開，後續連爆用自然隨機鑰匙，不再強觸
+    forceSpinType = null; // 消費強開，後續連爆用自然隨機號角，不再強觸
   } else {
     rewardIdx = pickRewardByKeyCount(savedKeyCount);
   }
 
-  // 鑰匙重置後重新收集到門檻 → 可再次觸發；倍數等到確認無機制後才結算
+  // 號角重置後重新收集到門檻 → 可再次觸發；倍數等到確認無機制後才結算
   const chestWillTrigger = rewardIdx >= 0;
 
   if (chestWillTrigger) {
@@ -1116,7 +1116,7 @@ function spawnBottomSpecials(affectedCols) {
         if (chosen === SPECIAL.KEY) chosen = SPECIAL.NONE;
       }
     }
-    if (inFG && (chosen === SPECIAL.KEY || chosen === SPECIAL.CROWN || chosen === SPECIAL.NECKLACE)) chosen = SPECIAL.NONE; // FG 不出鑰匙/皇冠/項鍊
+    if (inFG && (chosen === SPECIAL.KEY || chosen === SPECIAL.CROWN || chosen === SPECIAL.NECKLACE)) chosen = SPECIAL.NONE; // FG 不出號角/皇冠/項鍊
     bottomSpecial[c] = chosen;
     bottomSpecialAnim[c] = chosen !== SPECIAL.NONE ? 1 : 0;
     // KEY / WILD 與倍數不共存：清掉底列該格的隱藏倍數
@@ -1164,7 +1164,7 @@ function drawBottomSpecials(ctx) {
 
     let label = '';
     let textColor = '#ffd700';
-    if (sp === SPECIAL.KEY)      { label = '🔑'; textColor = '#fde68a'; }
+    if (sp === SPECIAL.KEY)      { label = '📯'; textColor = '#fde68a'; }
     else if (sp === SPECIAL.WILD)     { label = 'W'; }
     else if (sp === SPECIAL.CROWN)    { label = '👑'; textColor = '#facc15'; }
     else if (sp === SPECIAL.NECKLACE) { label = '💍'; textColor = '#f472b6'; }
@@ -1697,7 +1697,7 @@ function initMonsters() {
   ];
 }
 
-// 鑰匙飛向右側收集欄中心
+// 號角飛向右側收集欄中心
 function collectKey(fromX, fromY) {
   // 目標：右側寶箱欄中央
   const tx = 1147;
@@ -1824,7 +1824,7 @@ function drawChestPanel(ctx) {
   ctx.beginPath(); ctx.roundRect(px, startY - 28, pw, 22, 6); ctx.fill();
   ctx.fillStyle = '#64748b'; ctx.font = 'bold 12px Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🔑 鑰匙收集', px + pw / 2, startY - 17);
+  ctx.fillText('📯 號角收集', px + pw / 2, startY - 17);
   ctx.restore();
 
   // 只亮當前達到的最高門檻那一項
@@ -1880,12 +1880,12 @@ function drawChestPanel(ctx) {
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(chest.label, px + 66, cy + slotH / 2 - 10);
 
-    // 需要鑰匙
+    // 需要號角
     ctx.fillStyle = isActive ? chest.glowColor : '#475569';
     ctx.font = `${isActive ? 12 : 11}px Arial`;
-    ctx.fillText('需要 🔑 × ' + chest.keys, px + 66, cy + slotH / 2 + 12);
+    ctx.fillText('需要 📯 × ' + chest.keys, px + 66, cy + slotH / 2 + 12);
 
-    // 鑰匙進度點（右下角）
+    // 號角進度點（右下角）
     const dotR = 5, dotGap = 14;
     const dotY = cy + slotH - 14;
     const dotStartX = px + pw - 10 - (chest.keys - 1) * dotGap;
@@ -1903,14 +1903,14 @@ function drawChestPanel(ctx) {
     ctx.restore();
   });
 
-  // ── 底部：本局鑰匙計數 ──
+  // ── 底部：本局號角計數 ──
   ctx.save();
   const kby = startY + panelH + 10;
   ctx.fillStyle = 'rgba(15,23,42,0.75)';
   ctx.beginPath(); ctx.roundRect(px, kby, pw, 22, 6); ctx.fill();
   ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('本局 🔑 × ' + keyCount, px + pw / 2, kby + 11);
+  ctx.fillText('本局 📯 × ' + keyCount, px + pw / 2, kby + 11);
   ctx.restore();
 }
 
@@ -1930,7 +1930,7 @@ function applyChestReward(idx) {
 // ── 禿鷹&獵犬：消除指定三種低階圖示後補盤重算 ──
 function rewardClearLowestSymbol() {
   // 禿鷹&獵犬：消除盤面上所有 征服火輪(id=1) / 風暴突擊(id=3) / 不屈戰魂(id=5)
-  keyCount = 0;                    // 補盤後鑰匙從 0 開始重新收集
+  keyCount = 0;                    // 補盤後號角從 0 開始重新收集
   const TARGET_IDS = new Set([1, 3, 5]);
   let cleared = false;
   for (let c = 0; c < COLS; c++) {
@@ -1961,7 +1961,7 @@ function rewardClearLowestSymbol() {
 // ── 厄里斯：全盤消除，後續連爆只出現高賠率三種符號（本 Spin 內有效）──
 // ── 厄里斯：隨機倍率 + 盤面全消 ──
 function rewardErisMultiplier() {
-  keyCount = 0;                    // 補盤後鑰匙從 0 開始重新收集
+  keyCount = 0;                    // 補盤後號角從 0 開始重新收集
   const options = [2, 3, 5, 10];
   const picked = options[Math.floor(Math.random() * options.length)];
   const start = multiplier;
@@ -2365,7 +2365,7 @@ function drawChestUnlockAnim(ctx) {
     ctx.fillText('🎁 解鎖 宙斯 & 赫拉！', 640, by + 105);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px Arial';
-    ctx.fillText('本局收集 6 把鑰匙，Boss 降臨！', 640, by + 138);
+    ctx.fillText('本局收集 6 把號角，Boss 降臨！', 640, by + 138);
   } else {
     // 一般寶箱解鎖
     ctx.font = '46px Arial';
@@ -2375,7 +2375,7 @@ function drawChestUnlockAnim(ctx) {
     ctx.fillText('🎁 解鎖 ' + chest.label + '！', 640, by + 105);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px Arial';
-    ctx.fillText('本局收集 ' + chest.keys + ' 把鑰匙', 640, by + 135);
+    ctx.fillText('本局收集 ' + chest.keys + ' 把號角', 640, by + 135);
   }
   ctx.restore();
 }
@@ -2433,7 +2433,7 @@ function drawFlyingAttacks(ctx) {
     ctx.textBaseline = 'middle';
     if (fa.isKey) {
       ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 16;
-      ctx.fillText('🔑', fa.x, fa.y);
+      ctx.fillText('📯', fa.x, fa.y);
     } else if (fa.isCrown) {
       ctx.shadowColor = '#facc15'; ctx.shadowBlur = 16;
       ctx.fillText('👑', fa.x, fa.y);
@@ -2745,7 +2745,7 @@ function drawRevealOverlay(ctx) {
 
     // 標籤文字
     let label = '';
-    if (item.type === 'key')           label = '🔑';
+    if (item.type === 'key')           label = '📯';
     else if (item.type === 'crown')    label = '👑';
     else if (item.type === 'necklace') label = '💍';
     else if (item.type === 'wild')     label = 'W';
