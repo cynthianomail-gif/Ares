@@ -820,8 +820,6 @@ function endRound() {
       inFG = false;
       fgAssistMode = false;
       resolveCollectionJP(); // FG 結束，皇冠/項鍊累積數量一次性結算
-      crownCount = 0;
-      necklaceCount = 0;
       pendingFGEnd = true; // 等JP報獎動畫播完後再顯示結束面板
     } else {
       autoSpinDelay = AUTO_SPIN_DELAY;
@@ -3144,6 +3142,8 @@ canvas.addEventListener('click', e => {
     const bw = 160, bh = 44, bx = 640 - bw / 2, by = 360 - 140 + 210;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showFGEndPanel = false;
+      crownCount = 0;    // 確定後才清除收集圖示
+      necklaceCount = 0;
     }
     return;
   }
