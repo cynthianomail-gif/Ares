@@ -1273,7 +1273,7 @@ function drawJPBars(ctx) {
   const gap = 10;                    // 與倍數欄位的間距
   const multHalfW = 100;            // 得分累積欄位半寬（200px）
 
-  const zeus = monsters.find(m => m.name === '宙斯') || { jackpot: 99999 };
+  const zeus = monsters.find(m => m.name === '宙斯') || { jackpot: 999999 };
   const hera = monsters.find(m => m.name === '赫拉') || { jackpot: 888888 };
   const bars = [
     { label: '⚡ 宙斯 JP', value: zeus.jackpot.toLocaleString(), bx: cx - multHalfW - gap - bw },
@@ -1805,7 +1805,7 @@ function drawFlyingMultipliers(ctx) {
 // === 怪獸初始化 ===
 function initMonsters() {
   monsters = [
-    { side: 'left',  name: '宙斯', hp: 4, maxHp: 4, isJP: true, jackpot: 99999,  color: '#facc15', icon: '⚡', shake: 0, isDead: false },
+    { side: 'left',  name: '宙斯', hp: 4, maxHp: 4, isJP: true, jackpot: 999999,  color: '#facc15', icon: '⚡', shake: 0, isDead: false },
     { side: 'right', name: '赫拉', hp: 4, maxHp: 4, isJP: true, jackpot: 888888, color: '#ec4899', icon: '👑', shake: 0, isDead: false },
   ];
 }
@@ -1834,7 +1834,7 @@ function getCollectionJPTier(count, isCrown) {
   if (count >= 4) {
     if (isCrown) {
       const m = monsters.find(b => b.name === '宙斯');
-      return { label: '⚡ 宙斯', value: m ? m.jackpot : 99999, hue: 45 };
+      return { label: '⚡ 宙斯', value: m ? m.jackpot : 999999, hue: 45 };
     } else {
       const m = monsters.find(b => b.name === '赫拉');
       return { label: '👑 赫拉', value: m ? m.jackpot : 888888, hue: 300 };
@@ -2155,7 +2155,7 @@ function rewardJackpot() {
 // ── 抽牌完成後發放對應 JP ──
 function grantBossCardJP(cardIdx) {
   const bossDefs = [
-    { name: '宙斯', fallback: 99999,  label: '⚡ 宙斯' },
+    { name: '宙斯', fallback: 999999,  label: '⚡ 宙斯' },
     { name: '赫拉', fallback: 888888, label: '👑 赫拉' },
   ];
   const bossId = bossCardPick.order[cardIdx];
@@ -2204,7 +2204,7 @@ function drawBossCardPick(ctx) {
   const cardY = cy - CH / 2;
 
   const BOSS_INFO = [
-    { icon: '⚡', name: '宙斯', color: '#facc15', glow: '#fbbf24', jackpot: (() => { const m = monsters.find(b=>b.name==='宙斯'); return m ? m.jackpot : 99999; })() },
+    { icon: '⚡', name: '宙斯', color: '#facc15', glow: '#fbbf24', jackpot: (() => { const m = monsters.find(b=>b.name==='宙斯'); return m ? m.jackpot : 999999; })() },
     { icon: '👑', name: '赫拉', color: '#ec4899', glow: '#f472b6', jackpot: (() => { const m = monsters.find(b=>b.name==='赫拉'); return m ? m.jackpot : 888888; })() },
   ];
 
