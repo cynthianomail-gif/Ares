@@ -231,10 +231,10 @@
             <p>• 累積 <b>4 把</b>：⚔️ 厄倪俄 — 進入 Free Game 10 局</p>
             <p>• 號角數於每局 Spin 開始時重置</p>
             <h3>▌ 皇冠 &amp; 項鍊 JP</h3>
-            <p>• 底列出現 👑 皇冠 / 📿 項鍊，各別計算，每局重置</p>
-            <p>• 收集 <b>1 個</b>：MINI JP（× 5 押注）</p>
-            <p>• 收集 <b>2 個</b>：MINOR JP（× 10 押注）</p>
-            <p>• 收集 <b>3 個</b>：MAJOR JP（× 75 押注）</p>
+            <p>• 底列出現 👑 皇冠 / 📿 項鍊，各別計算，每局重置（FG 期間持續累積，FG 結束時一次性結算）</p>
+            <p>• 收集 <b>1 個</b>：MINI JP（× 10 押注）</p>
+            <p>• 收集 <b>2 個</b>：MINOR JP（× 25 押注）</p>
+            <p>• 收集 <b>3 個</b>：MAJOR JP（× 100 押注）</p>
             <p>• 收集 <b>4 個</b>：⚡ 宙斯 / 👑 赫拉 JP（累積彩金）</p>
           </div>
         </div>
@@ -426,7 +426,9 @@ let inFG = false;            // 是否在 Free Game 中
 let fgSpinsLeft = 0;         // FG 剩餘局數
 let fgSpinsTotal = 0;        // FG 總局數（用於顯示）
 let showFGEndPanel = false;  // FG 結束面板
+let pendingFGEnd = false;    // FG已結束，等JP報獎播完後才顯示結束面板
 let fgMultCollectedThisRound = false; // 本局FG是否收集到倍數
+let fgNeedCollectible = false;        // FG每局保底：本局尚未出現皇冠/項鍊
 const FG_TOTAL_SPINS = 10;
 
 // 厄里斯效果：本次 Spin 剩餘連爆只出現 3 種高賠率符號
@@ -584,9 +586,12 @@ function startSpin() {
   if (currentState !== STATE.IDLE) return;
   if (!inFG) multiplier = 1; // FG 期間倍數持續累積，僅 NG 新一局才重置
   fgMultCollectedThisRound = false;
+  fgNeedCollectible = inFG; // FG 每局保底一個皇冠或項鍊
   keyCount = 0;
-  crownCount = 0;
-  necklaceCount = 0;
+  if (!inFG) {
+    crownCount = 0;
+    necklaceCount = 0;
+  }
   pendingMultToScoreApply = null;
   jpWinQueue = [];
   winLog = [];
@@ -607,7 +612,7 @@ function startSpin() {
     forceLineSymbol = 4;                  // 戰場凶兆
     if (forceSpinType === 'mult') {
       // 預抽一個隨機倍數（全範圍），保證出現在中間欄（c=2）
-      const multOptions = [2,3,4,5,6,8,10,12,15,20,25,50,100,250,500,1000];
+      const multOptions = [2,3,4,5,6,8,10,12,15,20,25,50,100,250,500];
       forcedMult = multOptions[Math.floor(Math.random() * multOptions.length)];
     } else if (forceSpinType === 'fg_test') {
       // FG 測試：有連線，50% 機率附帶倍數
@@ -780,8 +785,8 @@ function checkPaylines() {
 }
 
 function endRound() {
-  // 皇冠/項鍊 JP 結算（動畫播完後才繼續）
-  resolveCollectionJP();
+  // 皇冠/項鍊 JP 結算：NG 每局結算；FG 累積到結束時統一結算
+  if (!inFG) resolveCollectionJP();
 
   // 沖銷仍在飛行的分數，確保 winScore 完整
   flyingScores.forEach(fs => { winScore += fs.value; });
@@ -814,7 +819,8 @@ function endRound() {
     if (fgSpinsLeft <= 0) {
       inFG = false;
       fgAssistMode = false;
-      showFGEndPanel = true;
+      resolveCollectionJP(); // FG 結束，皇冠/項鍊累積數量一次性結算
+      pendingFGEnd = true; // 等JP報獎動畫播完後再顯示結束面板
     } else {
       autoSpinDelay = AUTO_SPIN_DELAY;
     }
@@ -1132,7 +1138,7 @@ function spawnBottomSpecials(affectedCols) {
         if (chosen === SPECIAL.KEY) chosen = SPECIAL.NONE;
       }
     }
-    if (inFG && (chosen === SPECIAL.KEY || chosen === SPECIAL.CROWN || chosen === SPECIAL.NECKLACE)) chosen = SPECIAL.NONE; // FG 不出號角/皇冠/項鍊
+    if (inFG && chosen === SPECIAL.KEY) chosen = SPECIAL.NONE; // FG 不出號角，皇冠/項鍊持續累積
     bottomSpecial[c] = chosen;
     bottomSpecialAnim[c] = chosen !== SPECIAL.NONE ? 1 : 0;
     // KEY / WILD 與倍數不共存：清掉底列該格的隱藏倍數
@@ -1140,6 +1146,20 @@ function spawnBottomSpecials(affectedCols) {
       board[c][ROWS - 1].mult = 0;
     }
   });
+
+  // FG 保底：本局尚未出現過皇冠/項鍊，強制指定一欄
+  if (inFG && fgNeedCollectible) {
+    const hasCrown = affectedCols.some(c => bottomSpecial[c] === SPECIAL.CROWN || bottomSpecial[c] === SPECIAL.NECKLACE);
+    if (hasCrown) {
+      fgNeedCollectible = false;
+    } else {
+      const pick = affectedCols[Math.floor(Math.random() * affectedCols.length)];
+      bottomSpecial[pick] = Math.random() < 0.5 ? SPECIAL.CROWN : SPECIAL.NECKLACE;
+      bottomSpecialAnim[pick] = 1;
+      if (board[pick] && board[pick][ROWS - 1]) board[pick][ROWS - 1].mult = 0;
+      fgNeedCollectible = false;
+    }
+  }
 
   revealSeq = [...affectedCols].filter(c => bottomSpecial[c] !== SPECIAL.NONE).sort((a, b) => a - b);
   revealSeqIdx = 0;
@@ -1246,7 +1266,6 @@ function updateRevealing() {
 
 // === JP 顯示條（倍數欄位左右兩側）===
 function drawJPBars(ctx) {
-  if (inFG) return;
   const cx = GRID_X + GRID_W / 2;   // 與倍數欄位同中心
   const by = GRID_Y - 58;
   const bh = 44;
@@ -1341,13 +1360,12 @@ function drawScoreAccumulator(ctx) {
 
 // ── 左側 JP 獎池面板（宙斯卡片下方）──
 function drawJPPanel(ctx) {
-  if (inFG) return;
   const bx = 5, by = 148, bw = 255, bh = 82;
 
   const tiers = [
-    { label: 'MAJOR', value: (75 * betAmount).toLocaleString(), color: '#f97316' },
-    { label: 'MINOR', value: (10 * betAmount).toLocaleString(), color: '#60a5fa' },
-    { label: 'MINI',  value: (5  * betAmount).toLocaleString(), color: '#94a3b8' },
+    { label: 'MAJOR', value: (100 * betAmount).toLocaleString(), color: '#f97316' },
+    { label: 'MINOR', value: (25  * betAmount).toLocaleString(), color: '#60a5fa' },
+    { label: 'MINI',  value: (10  * betAmount).toLocaleString(), color: '#94a3b8' },
   ];
 
   ctx.save();
@@ -1403,7 +1421,6 @@ function drawMultiplierBar(ctx) {
 
 // ── 連線消除紀錄面板 ──
 function drawWinLog(ctx) {
-  if (inFG) return;
   const bx = 5, by = 306, bw = 255;
   const rowH = 22, maxRows = 6;
   const bh = maxRows * rowH + 8;
@@ -1823,9 +1840,9 @@ function getCollectionJPTier(count, isCrown) {
       return { label: '👑 赫拉', value: m ? m.jackpot : 888888, hue: 300 };
     }
   }
-  if (count === 3) return { label: 'MAJOR',  value: 75 * betAmount, hue: 15  };
-  if (count === 2) return { label: 'MINOR',  value: 10 * betAmount, hue: 210 };
-  if (count === 1) return { label: 'MINI',   value:  5 * betAmount, hue: 60  };
+  if (count === 3) return { label: 'MAJOR',  value: 100 * betAmount, hue: 15  };
+  if (count === 2) return { label: 'MINOR',  value:  25 * betAmount, hue: 210 };
+  if (count === 1) return { label: 'MINI',   value:  10 * betAmount, hue: 60  };
   return null;
 }
 
@@ -1855,7 +1872,6 @@ function resolveCollectionJP() {
 // 兩張一樣大的 Boss 卡（無血量）
 // 宙斯：左側面板；赫拉：右側收集欄上方
 function drawBossCards(ctx) {
-  if (inFG) return;
   const BW = 255, BH = 86; // 兩張完全一致的尺寸
   const BOSS_DEF = [
     { name: '宙斯', bx: 5,    by: 56 },
@@ -2624,6 +2640,11 @@ function update(dt) {
   updateBossCardPick();
   updateChestUnlockAnim();
   if (jpWinAnim.active) return; // JP 播放中：凍結狀態機（補盤/結算全部等待）
+  // FG結束後，等JP全部播完才顯示轉場面板
+  if (pendingFGEnd && jpWinQueue.length === 0) {
+    pendingFGEnd = false;
+    showFGEndPanel = true;
+  }
   switch (currentState) {
     case STATE.SPINNING:    updateSpinning(); break;
     case STATE.CHECKING:    checkPaylines(); break;
@@ -3121,6 +3142,8 @@ canvas.addEventListener('click', e => {
     const bw = 160, bh = 44, bx = 640 - bw / 2, by = 360 - 140 + 210;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showFGEndPanel = false;
+      crownCount = 0;    // 確定後才清除收集圖示
+      necklaceCount = 0;
     }
     return;
   }
