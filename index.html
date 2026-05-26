@@ -3157,7 +3157,8 @@ canvas.addEventListener('click', e => {
       fgSpinsLeft = FG_TOTAL_SPINS;
       fgSpinsTotal = FG_TOTAL_SPINS;
       autoSpinDelay = 0;
-      startSpin(); // multiplier 已因 inFG=true 而不被重置
+      multiplier = 1; // NG 累積倍數獨立結算，不帶入 FG
+      startSpin();
     }
     return;
   }
