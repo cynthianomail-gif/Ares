@@ -208,7 +208,7 @@
             <p>• 每次連爆得分即時乘以當前倍數</p>
 
             <h3>▌ Free Game（FG）</h3>
-            <p>• 由 <b>厄倪俄</b> 號角獎勵觸發，共 <b>10 局</b></p>
+            <p>• 由 <b>厄倪俄</b> 號角獎勵觸發，共 <b>10 局</b> 或 <b>15 局</b>（依收集號角數量）</p>
             <p>• FG 期間倍數持續累積，不重置</p>
             <p>• 每局結束後以累積倍數計算本次 FG 總得分</p>
           </div>
@@ -226,9 +226,9 @@
 
             <h3>▌ 號角收集與獎勵</h3>
             <p>• 連爆後底列隨機出現 號角 / WILD / 倍數 / 皇冠 / 項鍊，每局重新計算</p>
-            <p>• 累積 <b>2 把</b>：🦅 禿鷹&獵犬 — 消除盤面低階符號</p>
-            <p>• 累積 <b>3 把</b>：🍎 厄里斯 — 全盤消除並隨機加乘倍數</p>
-            <p>• 累積 <b>4 把</b>：⚔️ 厄倪俄 — 進入 Free Game 10 局</p>
+            <p>• 累積 <b>2 把</b>：無機制</p>
+            <p>• 累積 <b>3 把</b>：⚔️ 厄倪俄 — 進入 Free Game 10 局</p>
+            <p>• 累積 <b>4 把</b>：⚔️ 厄倪俄降臨 — 進入 Free Game 15 局</p>
             <p>• 號角數於每局 Spin 開始時重置</p>
             <h3>▌ 皇冠 &amp; 項鍊 JP</h3>
             <p>• 底列出現 👑 皇冠 / 📿 項鍊，各別計算，每局重置（FG 期間持續累積，FG 結束時一次性結算）</p>
@@ -429,7 +429,8 @@ let showFGEndPanel = false;  // FG 結束面板
 let pendingFGEnd = false;    // FG已結束，等JP報獎播完後才顯示結束面板
 let fgMultCollectedThisRound = false; // 本局FG是否收集到倍數
 let fgNeedCollectible = false;        // FG每局保底：本局尚未出現皇冠/項鍊
-const FG_TOTAL_SPINS = 10;
+const FG_TOTAL_SPINS = 10; // 預設局數（強開等未指定情況的備用值）
+let pendingFGRounds = FG_TOTAL_SPINS; // 本次觸發應給予的 FG 局數（10 或 15，依號角數量門檻）
 
 // 厄里斯效果：本次 Spin 剩餘連爆只出現 3 種高賠率符號
 let heraSymbolRestrict = false;
@@ -441,10 +442,10 @@ function randomSymId() {
   return Math.floor(Math.random() * SYMBOLS.length);
 }
 
+// 收集 2 把號角無機制；收集 3 / 4 把觸發厄倪俄 Free Game，局數由 fgRounds 決定
 const CHESTS = [
-  { label: '禿鷹&獵犬', keys: 2, color: '#7c2d12', glowColor: '#ea580c', textColor: '#fdba74', icon: '🦅' },
-  { label: '厄里斯',    keys: 3, color: '#1e3a5f', glowColor: '#94a3b8', textColor: '#e2e8f0', icon: '🍎' },
-  { label: '厄倪俄',    keys: 4, color: '#713f12', glowColor: '#eab308', textColor: '#fef08a', icon: '⚔️' },
+  { label: '厄倪俄',      keys: 3, color: '#1e3a5f', glowColor: '#94a3b8', textColor: '#e2e8f0', icon: '⚔️', fgRounds: 10 },
+  { label: '厄倪俄降臨',  keys: 4, color: '#713f12', glowColor: '#eab308', textColor: '#fef08a', icon: '⚔️', fgRounds: 15 },
 ];
 
 let particles = [];
@@ -491,7 +492,7 @@ let revealSeq = [];       // 待依序演繹的欄位（sorted left→right）
 let revealSeqIdx = 0;     // 目前正在演繹的索引
 let revealColTimer = 0;   // 目前欄位的計時器
 
-let forceSpinType = null;     // null | 'mult' | 'wild' | 'key_0'..'key_3'
+let forceSpinType = null;     // null | 'mult' | 'wild' | 'key_0'..'key_1'
 let forceUsed = false;
 let forceKeyTarget = 0;       // 強開號角：目標號角數量
 let forceKeySpawned = 0;      // 已生成的號角數
@@ -832,19 +833,19 @@ function endRound() {
   keyCount = 0;
 
   let rewardIdx = -1;
-  let forceWasKey2 = false;
+  let forceWasFG = false;
 
   function pickRewardByKeyCount(cnt) {
     for (let i = CHESTS.length - 1; i >= 0; i--) {
       if (cnt >= CHESTS[i].keys) return i;
     }
-    return -1;
+    return -1; // 例如恰好收集 2 把：未達 3 把門檻，無機制
   }
 
   if (forceSpinType && forceSpinType.startsWith('key_')) {
     const forcedIdx = parseInt(forceSpinType[4]);
     rewardIdx = forcedIdx; // 強開直接使用指定獎勵，不受號角數量門檻限制
-    forceWasKey2 = (forceSpinType === 'key_2');
+    forceWasFG = true; // 目前所有門檻獎勵皆為觸發 Free Game
     forceSpinType = null; // 消費強開，後續連爆用自然隨機號角，不再強觸
   } else {
     rewardIdx = pickRewardByKeyCount(savedKeyCount);
@@ -854,15 +855,9 @@ function endRound() {
   const chestWillTrigger = rewardIdx >= 0;
 
   if (chestWillTrigger) {
-    if (rewardIdx === 1) {
-      // 厄里斯：先將當前倍數結算進得分，再重置倍數，最後觸發抽倍動畫
-      applyMultiplierToScore();
-      multiplier = 1;
-    } else if (rewardIdx === 2) {
-      // 厄倪俄：先結算 NG 再觸發機制
-      applyMultiplierToScore();
-      fgAssistMode = forceWasKey2;
-    }
+    // 3 把 / 4 把皆觸發厄倪俄 Free Game，差異只在局數（見 CHESTS[rewardIdx].fgRounds）
+    applyMultiplierToScore();
+    fgAssistMode = forceWasFG;
     pendingChestReward = rewardIdx;
     chestUnlockAnim = { active: true, timer: 0, idx: pendingChestReward };
   } else {
@@ -1941,11 +1936,11 @@ function drawBossCards(ctx) {
   });
 }
 
-// 右側寶箱收集欄（僅 3 格：銅/銀/金，宙斯赫拉左右已有）
+// 右側寶箱收集欄（僅 2 格：3 把 / 4 把厄倪俄門檻，宙斯赫拉左右已有）
 function drawChestPanel(ctx) {
   if (inFG) return;
   const px = 1022, pw = 250;
-  const PANEL_CHESTS = CHESTS.slice(0, 3); // 只取前 3 個（排除宙斯&赫拉）
+  const PANEL_CHESTS = CHESTS; // 兩個門檻（排除宙斯&赫拉）
   const slotH = 100, gap = 10;
   const panelH = PANEL_CHESTS.length * slotH + (PANEL_CHESTS.length - 1) * gap; // 320px
   // 在盤面高度內垂直置中
@@ -2042,13 +2037,9 @@ function drawChestPanel(ctx) {
 // === 寶箱獎勵機制 ===
 // ====================================================
 
-// 根據 idx 觸發對應獎勵
+// 根據 idx 觸發對應獎勵（目前 CHESTS 兩個門檻皆為厄倪俄 Free Game，差異只在局數）
 function applyChestReward(idx) {
-  switch (idx) {
-    case 0: rewardClearLowestSymbol(); break; // 禿鷹&獵犬
-    case 1: rewardErisMultiplier();    break; // 厄里斯
-    case 2: rewardFreeGame();          break; // 厄倪俄
-  }
+  rewardFreeGame(idx);
 }
 
 // ── 禿鷹&獵犬：消除指定三種低階圖示後補盤重算 ──
@@ -2137,8 +2128,9 @@ function rewardClearAllBoard() {
 }
 
 // ── 厄倪俄：進入 Free Game（顯示入場面板）──
-function rewardFreeGame() {
+function rewardFreeGame(idx) {
   showFGPanel = true;
+  pendingFGRounds = (CHESTS[idx] && CHESTS[idx].fgRounds) || FG_TOTAL_SPINS;
   // 倍數保留，不重置
 }
 
@@ -2412,7 +2404,7 @@ function drawFGPanel(ctx) {
   ctx.fillRect(0, 0, 1280, 720);
 
   // 主框
-  const bw = 520, bh = 260, bx = 640 - bw/2, by = 360 - bh/2;
+  const bw = 520, bh = 280, bx = 640 - bw/2, by = 360 - bh/2;
   const grad = ctx.createLinearGradient(bx, by, bx, by+bh);
   grad.addColorStop(0, '#1a2040'); grad.addColorStop(1, '#0a0f20');
   ctx.fillStyle = grad;
@@ -2433,6 +2425,8 @@ function drawFGPanel(ctx) {
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#94a3b8'; ctx.font = '15px Arial';
   ctx.fillText('厄倪俄降臨，戰場即將掀起風暴', 640, by + 158);
+  ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 16px Arial';
+  ctx.fillText('共 ' + pendingFGRounds + ' 局免費遊戲', 640, by + 182);
 
   // 開始按鈕
   const btnW = 160, btnH = 44, btnX = 640 - btnW/2, btnY = by + 196;
@@ -2979,7 +2973,7 @@ function drawBottomBar(ctx) {
   ctx.fillText('強開', 189, 670);
   ctx.fillStyle = hasForce ? '#fbbf24' : '#64748b';
   ctx.font = '11px Arial';
-  const _keyLabels = { key_0: '禿鷹', key_1: '厄里斯', key_2: '厄倪俄',
+  const _keyLabels = { key_0: '厄倪俄10局', key_1: '厄倪俄15局',
     crown_1: '皇冠×1', crown_2: '皇冠×2', crown_3: '皇冠×3', crown_4: '皇冠×4',
     necklace_1: '項鍊×1', necklace_2: '項鍊×2', necklace_3: '項鍊×3', necklace_4: '項鍊×4' };
   const forceLabel = forceSpinType === 'mult' ? '倍數' : forceSpinType === 'wild' ? 'WILD' : _keyLabels[forceSpinType] || '未設定';
@@ -3004,9 +2998,8 @@ function drawForceMenu(ctx) {
   const options = [
     { label: '⚡ 倍數',    type: 'mult'     },
     { label: '✦ WILD',    type: 'wild'     },
-    { label: '🦅 禿鷹&獵犬', type: 'key_0' },
-    { label: '🍎 厄里斯',   type: 'key_1'  },
-    { label: '⚔️ 厄倪俄',  type: 'key_2'  },
+    { label: '⚔️ 厄倪俄 10局', type: 'key_0' },
+    { label: '⚔️ 厄倪俄 15局', type: 'key_1' },
     { label: '👑 皇冠 ×1', type: 'crown_1' },
     { label: '👑 皇冠 ×2', type: 'crown_2' },
     { label: '👑 皇冠 ×3', type: 'crown_3' },
@@ -3155,12 +3148,12 @@ canvas.addEventListener('click', e => {
 
   // FG 入場面板：點「開始 FG」按鈕
   if (showFGPanel) {
-    const bw = 160, bh = 44, bx = 640 - bw / 2, by = 360 - 130 + 196;
+    const bw = 160, bh = 44, bx = 640 - bw / 2, by = 360 - 140 + 196;
     if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
       showFGPanel = false;
       inFG = true;
-      fgSpinsLeft = FG_TOTAL_SPINS;
-      fgSpinsTotal = FG_TOTAL_SPINS;
+      fgSpinsLeft = pendingFGRounds;
+      fgSpinsTotal = pendingFGRounds;
       autoSpinDelay = 0;
       multiplier = 1; // NG 累積倍數獨立結算，不帶入 FG
       startSpin();
@@ -3171,7 +3164,7 @@ canvas.addEventListener('click', e => {
   // 強開選單選項（優先判斷，避免被按鈕覆蓋）
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
-    const options = ['mult', 'wild', 'key_0', 'key_1', 'key_2', 'crown_1', 'crown_2', 'crown_3', 'crown_4', 'necklace_1', 'necklace_2', 'necklace_3', 'necklace_4'];
+    const options = ['mult', 'wild', 'key_0', 'key_1', 'crown_1', 'crown_2', 'crown_3', 'crown_4', 'necklace_1', 'necklace_2', 'necklace_3', 'necklace_4'];
     const menuH = 10 + options.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
     let hit = false;
