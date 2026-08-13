@@ -404,6 +404,31 @@ function rollCellMult() {
   return 0;
 }
 
+// 強開「必出預報框」：本局是否還缺弱框／強框等級的隱藏倍數
+const FORECAST_WEAK_OPTS = [10, 12, 15, 20, 25];    // 弱框對應區間
+const FORECAST_STRONG_OPTS = [50, 100, 250, 500];   // 強框對應區間
+let forecastNeedWeak = false;
+let forecastNeedStrong = false;
+
+// 滾輪捲動時，新圖示的隱藏倍數。
+// 一般情況完全照原本的權重表；強開「必出預報框」時，只在各欄最後 ROWS 次捲動內
+// （＝這格必定會停在盤面上）補齊尚未出現的預報等級。
+// 這樣預報框是隨滾輪一起產生的，滾動當下就跟著圖示顯示，而不是停輪後才補上去。
+function rollSpinMult(c) {
+  if (forceSpinType === 'forecast' && (forecastNeedWeak || forecastNeedStrong)) {
+    const remainSteps = Math.floor(colSpinFrames[c] * SPIN_SPEED / CELL_SIZE);
+    if (remainSteps < ROWS) {
+      if (forecastNeedStrong) {
+        forecastNeedStrong = false;
+        return FORECAST_STRONG_OPTS[Math.floor(Math.random() * FORECAST_STRONG_OPTS.length)];
+      }
+      forecastNeedWeak = false;
+      return FORECAST_WEAK_OPTS[Math.floor(Math.random() * FORECAST_WEAK_OPTS.length)];
+    }
+  }
+  return rollCellMult();
+}
+
 // === 預報框（美術需求說明 編號11-4 / 視覺流程圖 02）===
 // 圖示落定當下即顯示，持續存在直到該格被消除揭曉；底下有預報對象即必然顯示，不做落空。
 // 弱框：隨機倍數 10×~25×／皇冠或項鍊第 1~2 顆／號角第 1~2 顆
@@ -566,7 +591,6 @@ let forceLineRows = null;     // 強開時決定的中獎 payline（每列對應
 let forceLineRows2 = null;    // key_3 強開時額外強制的第二列
 let forceLineSymbol = -1;     // 強開時決定的中獎符號 id
 let forcedMult = 0;           // 強開倍數模式預抽的倍數值
-let forceForecastDone = false; // 強開「必出預報框」：本局是否已植入預報格
 let fgAssistMode = false;     // 強開厄倪俄進FG時：FG局數盡量有連線，且有機率帶倍數（測試用）
 
 let winLines = [];
@@ -725,9 +749,11 @@ function startSpin() {
   forcedMult = 0;
   forceKeyTarget = 0;
   forceKeySpawned = 0;
-  forceForecastDone = false;
+  // 必出預報框：本局要保證弱框與強框各出現一次，實際的倍數由滾輪捲動時產生
+  forecastNeedWeak = (forceSpinType === 'forecast');
+  forecastNeedStrong = (forceSpinType === 'forecast');
   if (forceSpinType === 'forecast') {
-    // 必出預報框：不強制連線，讓預報框留在盤面上直到自然被消除揭曉
+    // 不強制連線，讓預報框留在盤面上直到自然被消除揭曉
     forceLineRows = null;
     forceLineSymbol = -1;
   } else if (forceSpinType !== null) {
@@ -789,7 +815,7 @@ function updateSpinning() {
       if (colOffsets[c] >= CELL_SIZE) {
         colOffsets[c] -= CELL_SIZE;
         for (let r = ROWS - 1; r > 0; r--) board[c][r] = { ...board[c][r - 1] };
-        board[c][0] = { id: Math.floor(Math.random() * SYMBOLS.length), mult: rollCellMult(), yOffset: 0, isMatched: false, scale: 1, _flash: false };
+        board[c][0] = { id: Math.floor(Math.random() * SYMBOLS.length), mult: rollSpinMult(c), yOffset: 0, isMatched: false, scale: 1, _flash: false };
       }
       colSpinFrames[c]--;
       if (colSpinFrames[c] <= 0) {
@@ -817,26 +843,7 @@ function updateSpinning() {
     }
   }
 
-  if (allDone) {
-    if (forceSpinType === 'forecast' && !forceForecastDone) applyForcedForecast();
-    currentState = STATE.CHECKING;
-  }
-}
-
-// 強開「必出預報框」：停輪後植入一個弱框格與一個強框格，供對照兩級表現
-function applyForcedForecast() {
-  const WEAK_OPTS   = [10, 12, 15, 20, 25];
-  const STRONG_OPTS = [50, 100, 250, 500];
-  const rowOf = () => Math.floor(Math.random() * Math.max(1, ROWS - 1)); // 避開底列（底列留給特殊格）
-  const wc = 1, sc = 3;                                                   // 分置不同欄，避免視覺重疊
-  const wr = rowOf(), sr = rowOf();
-  if (board[wc] && board[wc][wr] && board[wc][wr].id !== -1) {
-    board[wc][wr].mult = WEAK_OPTS[Math.floor(Math.random() * WEAK_OPTS.length)];
-  }
-  if (board[sc] && board[sc][sr] && board[sc][sr].id !== -1) {
-    board[sc][sr].mult = STRONG_OPTS[Math.floor(Math.random() * STRONG_OPTS.length)];
-  }
-  forceForecastDone = true;
+  if (allDone) currentState = STATE.CHECKING;
 }
 
 // === Payline 中獎檢查 ===
