@@ -338,9 +338,9 @@ const SIDE = {
 const FLY_TARGET = {
   crown: { x: 704,  y: 196 },   // 皇冠 → 上方宙斯收集列
   fan:   { x: 1296, y: 196 },   // 羽扇 → 上方赫拉收集列
-  key:   { x: 230,  y: 565 },   // 蒐集物 → 左側巨劍凹槽
+  key:   { x: 430,  y: 565 },   // 蒐集物 → 左側巨劍凹槽（同 SWORD.cx）
   score: { x: 1000, y: 196 },   // 得分 → TumbleWin
-  mult:  { x: 192,  y: 330 },   // 隨機倍數 → 左側倍數欄
+  mult:  { x: 430,  y: 320 },   // 隨機倍數 → 倍數欄（同 SWORD.cx / discY）
 };
 
 // 圖示定名與主要色調依 260810 規格「美術需求說明」分頁；順序＝icon00~icon05
@@ -1747,7 +1747,7 @@ function drawFlyingScores(ctx) {
 }
 
 // ── 倍數飛向得分欄（endRound 結算用）──
-const _MULT_CX = 640, _MULT_CY = 96; // 得分欄中心
+const _MULT_CX = FLY_TARGET.score.x, _MULT_CY = FLY_TARGET.score.y; // 得分欄（TumbleWin）中心
 function updateMultToScoreAnim() {
   if (!multToScoreAnim.active) return;
   const m = multToScoreAnim;
@@ -1935,7 +1935,7 @@ function drawErisMultiplierAnim(ctx) {
   if (!erisMultiplierAnim.active) return;
 
   const p = erisMultiplierAnim;
-  const cx = 640, cy = 332;
+  const cx = GRID_X + GRID_W / 2, cy = GRID_Y + GRID_H / 2;
 
   if (p.phase === 'land') {
     const pulse = 0.75 + 0.25 * Math.sin(Date.now() / 95);
@@ -3542,10 +3542,9 @@ function drawTopUI(ctx) {
   ctx.fillStyle = '#ffdf8e';
   ctx.shadowColor = 'rgba(0,0,0,0.9)';
   ctx.shadowBlur = 5;
-  const tumbleText = multiplier > 1
-    ? fmtMoney(winScore) + '  × ' + multiplier
-    : fmtMoney(winScore);
-  ctx.fillText(tumbleText, tcx, tcy);
+  // 只顯示本局累積得分；倍數要等連爆完全結束後，才由 drawMultToScoreAnim 演繹相乘。
+  // 結算演繹進行中時，得分數字改由該動畫接手，這裡不畫，避免同一處出現兩個數字。
+  if (!multToScoreAnim.active) ctx.fillText(fmtMoney(winScore), tcx, tcy);
   ctx.shadowBlur = 0;
   ctx.restore();
 }
@@ -3574,7 +3573,8 @@ function drawCollectRow(ctx, base, count, onImg, offImg, iw, ih) {
 // 巨劍本體的 2D 素材尚未交付，此處先以程式繪出規格結構：
 // 劍柄圓盤＝倍數欄（4 級區間強度＋待觸發蓄勢），劍身 4 個菱形凹槽＝蒐集物進度，
 // 第 3／4 凹槽標示「10」「15」，達成時數字移至前方發光。
-const SWORD = { cx: 230, discY: 320, discR: 66, bodyTop: 396, bodyBot: 760, halfW: 34 };
+// cx 貼近盤面框左緣（框左緣約 554），圓盤右緣與門檻數字都留在框外
+const SWORD = { cx: 430, discY: 320, discR: 66, bodyTop: 396, bodyBot: 760, halfW: 34 };
 const MULT_LEVELS = [
   { ring: '#8a6a44', glow: 0,  text: '#ffe9b0' },  // 未達 LV1
   { ring: '#f6c453', glow: 16, text: '#fff2c4' },  // LV1 10~19
@@ -3738,14 +3738,6 @@ function draw() {
   // 已全部由 drawTopUI 以新素材承擔，不再繪製，避免雙份 UI。
 
   drawSwordPanel(ctx);   // 左側：倍數欄＋巨劍蒐集凹槽（規格編號12／13）
-
-  // 右側欄：連線消除紀錄（無紀錄時不佔版面）
-  if (winLog.length > 0) {
-    ctx.save();
-    ctx.translate(SIDE.rightDX, SIDE.rightDY);
-    drawWinLog(ctx);
-    ctx.restore();
-  }
 
   drawReelBase(ctx);
   drawBoard(ctx);
