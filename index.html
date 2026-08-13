@@ -364,6 +364,31 @@ function rollCellMult() {
   return 0;
 }
 
+// === 預報框（美術需求說明 編號11-4 / 視覺流程圖 02）===
+// 圖示落定當下即顯示，持續存在直到該格被消除揭曉；底下有預報對象即必然顯示，不做落空。
+// 弱框：隨機倍數 10×~25×／皇冠或項鍊第 1~2 顆／號角第 1~2 顆
+// 強框：隨機倍數 50× 以上／皇冠或項鍊第 3~4 顆／號角第 3~4 顆
+// WILD 不預報（出現率最高，全報會使預報框貶值）
+const FORECAST = { NONE: 0, WEAK: 1, STRONG: 2 };
+
+function forecastLevelByMult(mult) {
+  if (!mult || mult < 10) return FORECAST.NONE;
+  return mult >= 50 ? FORECAST.STRONG : FORECAST.WEAK;
+}
+// 註：收集物（皇冠／項鍊／號角）的預報門檻（第 1~2 顆弱、第 3~4 顆強）尚未實作。
+// 本 DEMO 的收集物是「消除後於底列生成並立即飛出收集」，沒有藏在圖示底下等待揭曉的階段，
+// 預報框無顯示時間；待機制對齊 260810 規格（特殊物件藏於圖示底下）後再補。
+
+// === 特效強度分級（美術需求說明 編號11-1／11-3）===
+// 得分框與消除特效共用同一套「單線得分金額區間」判準，兩者同級連動。
+// 門檻以「單線得分 ÷ 押注額」計：<1 弱、1~4 中、>=4 強（規格門檻待補，此為 DEMO 暫定值）
+function winTierByLineWin(lineWin) {
+  const ratio = betAmount > 0 ? lineWin / betAmount : 0;
+  if (ratio >= 4) return 3;
+  if (ratio >= 1) return 2;
+  return 1;
+}
+
 // 狀態機
 const STATE = {
   IDLE:0, SPINNING:1, CHECKING:2, SHOWING_WIN:3,
@@ -501,6 +526,7 @@ let forceLineRows = null;     // 強開時決定的中獎 payline（每列對應
 let forceLineRows2 = null;    // key_3 強開時額外強制的第二列
 let forceLineSymbol = -1;     // 強開時決定的中獎符號 id
 let forcedMult = 0;           // 強開倍數模式預抽的倍數值
+let forceForecastDone = false; // 強開「必出預報框」：本局是否已植入預報格
 let fgAssistMode = false;     // 強開厄倪俄進FG時：FG局數盡量有連線，且有機率帶倍數（測試用）
 
 let winLines = [];
@@ -608,7 +634,12 @@ function startSpin() {
   forcedMult = 0;
   forceKeyTarget = 0;
   forceKeySpawned = 0;
-  if (forceSpinType !== null) {
+  forceForecastDone = false;
+  if (forceSpinType === 'forecast') {
+    // 必出預報框：不強制連線，讓預報框留在盤面上直到自然被消除揭曉
+    forceLineRows = null;
+    forceLineSymbol = -1;
+  } else if (forceSpinType !== null) {
     forceLineRows = PAYLINES[2].slice();  // [2,2,2,2,2] 底列
     forceLineSymbol = 4;                  // 戰場凶兆
     if (forceSpinType === 'mult') {
@@ -695,7 +726,26 @@ function updateSpinning() {
     }
   }
 
-  if (allDone) currentState = STATE.CHECKING;
+  if (allDone) {
+    if (forceSpinType === 'forecast' && !forceForecastDone) applyForcedForecast();
+    currentState = STATE.CHECKING;
+  }
+}
+
+// 強開「必出預報框」：停輪後植入一個弱框格與一個強框格，供對照兩級表現
+function applyForcedForecast() {
+  const WEAK_OPTS   = [10, 12, 15, 20, 25];
+  const STRONG_OPTS = [50, 100, 250, 500];
+  const rowOf = () => Math.floor(Math.random() * Math.max(1, ROWS - 1)); // 避開底列（底列留給特殊格）
+  const wc = 1, sc = 3;                                                   // 分置不同欄，避免視覺重疊
+  const wr = rowOf(), sr = rowOf();
+  if (board[wc] && board[wc][wr] && board[wc][wr].id !== -1) {
+    board[wc][wr].mult = WEAK_OPTS[Math.floor(Math.random() * WEAK_OPTS.length)];
+  }
+  if (board[sc] && board[sc][sr] && board[sc][sr].id !== -1) {
+    board[sc][sr].mult = STRONG_OPTS[Math.floor(Math.random() * STRONG_OPTS.length)];
+  }
+  forceForecastDone = true;
 }
 
 // === Payline 中獎檢查 ===
@@ -749,7 +799,11 @@ function checkPaylines() {
     let baseWin = 0;
     winLines.forEach(wl => {
       const payout = (PAYOUTS[wl.symbolId] && PAYOUTS[wl.symbolId][wl.count - 3]) || 0;
-      baseWin += betAmount * payout;
+      const lineWin = betAmount * payout;
+      // 得分框／消除特效共用同一套金額區間判準（美術需求說明 編號11-1、11-3）
+      wl.lineWin = lineWin;
+      wl.tier = winTierByLineWin(lineWin);
+      baseWin += lineWin;
     });
     // 每次消除彩金均為基礎值（不乘倍數）；倍數於 endRound 統一結算
     const thisWin = baseWin;
@@ -1006,28 +1060,54 @@ function updatePopping() {
 
 const MAX_PARTICLES = 500;
 
+// === 消除演繹 一/二/三（美術需求說明 編號11-3，特效強度 弱/中/強）===
+// 以共用爆炸特效蓋過消除（不做逐圖示碎裂拆圖）；與得分框同級連動，共用同一套金額區間判準。
+const POP_TIERS = [
+  null,
+  { count:  8, speed: [2, 5], size: [4, 8],  life: 30, ring: 0,  flash: 0    }, // 弱
+  { count: 14, speed: [3, 7], size: [5, 10], life: 36, ring: 46, flash: 0.25 }, // 中
+  { count: 22, speed: [4, 9], size: [6, 12], life: 44, ring: 62, flash: 0.45 }, // 強
+];
+const EMBER_COLORS = ['#fde68a', '#fb923c', '#f97316']; // 灰燼／火花色（強級加入）
+
 function spawnPopParticles() {
-  winLines.forEach(wl => wl.cells.forEach(({ c, r }) => {
-    const px = GRID_X + c * CELL_SIZE + CELL_SIZE / 2;
-    const py = GRID_Y + r * CELL_SIZE + CELL_SIZE / 2;
-    const color = (SYMBOLS[wl.symbolId] ? SYMBOLS[wl.symbolId].color : '#facc15');
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
-      const speed = 2 + Math.random() * 3;
-      particles.push({
-        x: px, y: py,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 30, maxLife: 30,
-        color, size: 4 + Math.random() * 4
-      });
-    }
-  }));
+  winLines.forEach(wl => {
+    const t = POP_TIERS[wl.tier || 1] || POP_TIERS[1];
+    wl.cells.forEach(({ c, r }) => {
+      const px = GRID_X + c * CELL_SIZE + CELL_SIZE / 2;
+      const py = GRID_Y + r * CELL_SIZE + CELL_SIZE / 2;
+      const baseColor = (SYMBOLS[wl.symbolId] ? SYMBOLS[wl.symbolId].color : '#facc15');
+      for (let i = 0; i < t.count; i++) {
+        const angle = (i / t.count) * Math.PI * 2 + Math.random() * 0.3;
+        const speed = t.speed[0] + Math.random() * (t.speed[1] - t.speed[0]);
+        // 強級摻入火花色，讓爆炸感隨強度上升
+        const color = (wl.tier === 3 && i % 3 === 0)
+          ? EMBER_COLORS[Math.floor(Math.random() * EMBER_COLORS.length)]
+          : baseColor;
+        particles.push({
+          x: px, y: py,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: t.life, maxLife: t.life,
+          color, size: t.size[0] + Math.random() * (t.size[1] - t.size[0])
+        });
+      }
+      // 中／強級加衝擊環，作為「爆炸蓋過消除」的主體
+      if (t.ring > 0) {
+        particles.push({
+          type: 'ring', x: px, y: py, vx: 0, vy: 0,
+          life: 22, maxLife: 22, color: baseColor,
+          size: 8, maxSize: t.ring, flash: t.flash
+        });
+      }
+    });
+  });
   if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
 }
 
 function updateParticles() {
   particles = particles.filter(p => {
+    if (p.type === 'ring') { p.life--; return p.life > 0; }  // 衝擊環不受重力，只擴張淡出
     p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; return p.life > 0;
   });
 }
@@ -1035,11 +1115,33 @@ function updateParticles() {
 function drawParticles(ctx) {
   particles.forEach(p => {
     ctx.save();
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
+    if (p.type === 'ring') {
+      // 消除演繹的衝擊環（中／強級）：由小擴大並淡出，作為爆炸蓋過的主體
+      const t = 1 - p.life / p.maxLife;
+      const rad = p.size + (p.maxSize - p.size) * t;
+      ctx.globalAlpha = (1 - t) * 0.85;
+      ctx.strokeStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 20 * (1 - t);
+      ctx.lineWidth = 5 * (1 - t) + 1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.stroke();
+      if (p.flash > 0) {
+        ctx.globalAlpha = p.flash * (1 - t);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, rad * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   });
 }
@@ -1103,7 +1205,8 @@ function spawnBottomSpecials(affectedCols) {
     let chosen = SPECIAL.NONE;
     for (const { type, w } of SPECIAL_WEIGHTS) { rand -= w; if (rand <= 0) { chosen = type; break; } }
     // 強開覆蓋（KEY/WILD 才在底部特殊格處理；倍數已在 cell.mult 處理）
-    if (forceSpinType && forceSpinType !== 'mult') {
+    // 'forecast'（必出預報框）不干預底列特殊格，維持自然隨機
+    if (forceSpinType && forceSpinType !== 'mult' && forceSpinType !== 'forecast') {
       if (!forceUsed) {
         if (forceSpinType === 'wild') {
           chosen = SPECIAL.WILD; forceUsed = true;
@@ -1238,7 +1341,7 @@ function updateRevealing() {
     const item = unifiedRevealSeq[unifiedRevealIdx];
     if (item.type === 'mult') {
       flyingMultipliers.push({ value: item.value, x: item.fx, y: item.fy,
-        tx: 132, ty: 268, progress: 0 }); // 飛向左側倍數欄位
+        sx: item.fx, sy: item.fy, tx: 132, ty: 268, progress: 0 }); // 飛向左側倍數欄位（拋物線＋拖尾）
     } else if (item.type === 'key') {
       collectKey(item.fx, item.fy);
       bottomSpecial[item.c] = PROCESSED;
@@ -1310,12 +1413,52 @@ function drawJPBars(ctx) {
 }
 
 // === Task 10：倍數欄位 ===
+// === 共用飛行演繹（美術需求說明 編號11-5，特效強度：弱）===
+// 四種收集物（隨機倍數／號角／皇冠／項鍊）共用同一組飛行路徑：拋物線＋拖尾，
+// 僅更換物件圖與起訖點；抵達後之接收演出由各 UI 物件各自負責。
+const FLIGHT_ARC = 90;        // 拋物線最高點的偏移量（px）
+const FLIGHT_TRAIL_MAX = 14;  // 拖尾取樣點數
+
+// 推進一個飛行物件；回傳 true 表示已抵達終點
+function stepFlight(f, speed) {
+  f.progress = Math.min(1, f.progress + speed);
+  const sx = (f.sx !== undefined) ? f.sx : f.x;
+  const sy = (f.sy !== undefined) ? f.sy : f.y;
+  const ease = f.progress * f.progress * (3 - 2 * f.progress); // smoothstep：起步慢、中段快、收尾穩
+  const arc = (f.arc !== undefined) ? f.arc : FLIGHT_ARC;
+  f.x = sx + (f.tx - sx) * ease;
+  f.y = sy + (f.ty - sy) * ease - Math.sin(Math.PI * ease) * arc;
+  if (!f.trail) f.trail = [];
+  f.trail.push({ x: f.x, y: f.y });
+  if (f.trail.length > FLIGHT_TRAIL_MAX) f.trail.shift();
+  return f.progress >= 1;
+}
+
+// 拖尾：越靠近本體越粗越亮
+function drawFlightTrail(ctx, f, color) {
+  if (!f.trail || f.trail.length < 2) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.shadowColor = color;
+  for (let i = 1; i < f.trail.length; i++) {
+    const a = f.trail[i - 1], b = f.trail[i];
+    const k = i / f.trail.length;
+    ctx.globalAlpha = k * 0.5;
+    ctx.strokeStyle = color;
+    ctx.shadowBlur = 12 * k;
+    ctx.lineWidth = 2 + 7 * k;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function updateFlyingMultipliers() {
   flyingMultipliers = flyingMultipliers.filter(fm => {
-    fm.x += (fm.tx - fm.x) * 0.08;
-    fm.y += (fm.ty - fm.y) * 0.08;
-    fm.progress = Math.min(1, fm.progress + 0.025);
-    if (fm.progress >= 1) {
+    const arrived = stepFlight(fm, 0.025);
+    if (arrived) {
       // 原本的 X1 不算基底：第一個倍數直接設為該值，後續才累加
       multiplier = (multiplier === 1 ? 0 : multiplier) + fm.value;
       if (inFG) fgMultCollectedThisRound = true;
@@ -1787,6 +1930,7 @@ function drawErisMultiplierAnim(ctx) {
 
 function drawFlyingMultipliers(ctx) {
   flyingMultipliers.forEach(fm => {
+    drawFlightTrail(ctx, fm, '#ffd700');  // 共用飛行演繹的拖尾
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = '#ffd700';
@@ -1814,17 +1958,17 @@ function collectKey(fromX, fromY) {
   // 目標：右側寶箱欄中央
   const tx = 1147;
   const ty = GRID_Y + GRID_H / 2;
-  flyingAttacks.push({ x: fromX, y: fromY, tx, ty, progress: 0, isKey: true });
+  flyingAttacks.push({ x: fromX, y: fromY, sx: fromX, sy: fromY, tx, ty, progress: 0, isKey: true });
 }
 
 function collectCrown(fromX, fromY) {
   // 目標：左側宙斯卡片
-  flyingAttacks.push({ x: fromX, y: fromY, tx: 130, ty: 99, progress: 0, isCrown: true });
+  flyingAttacks.push({ x: fromX, y: fromY, sx: fromX, sy: fromY, tx: 130, ty: 99, progress: 0, isCrown: true });
 }
 
 function collectNecklace(fromX, fromY) {
   // 目標：右側赫拉卡片
-  flyingAttacks.push({ x: fromX, y: fromY, tx: 1147, ty: 99, progress: 0, isNecklace: true });
+  flyingAttacks.push({ x: fromX, y: fromY, sx: fromX, sy: fromY, tx: 1147, ty: 99, progress: 0, isNecklace: true });
 }
 
 // JP 等級表：count → { label, value, hue }
@@ -2501,10 +2645,8 @@ function drawChestUnlockAnim(ctx) {
 
 function updateFlyingAttacks() {
   flyingAttacks = flyingAttacks.filter(fa => {
-    fa.x += (fa.tx - fa.x) * 0.1;
-    fa.y += (fa.ty - fa.y) * 0.1;
-    fa.progress = Math.min(1, fa.progress + 0.03);
-    if (fa.progress >= 1) {
+    const arrived = stepFlight(fa, 0.03);
+    if (arrived) {
       if (fa.isKey) {
         keyCount = Math.min(6, keyCount + 1);
       } else if (fa.isCrown) {
@@ -2539,6 +2681,9 @@ function updateFlyingAttacks() {
 
 function drawFlyingAttacks(ctx) {
   flyingAttacks.forEach(fa => {
+    // 共用飛行演繹的拖尾（顏色隨物件）
+    const trailColor = fa.isKey ? '#fbbf24' : fa.isCrown ? '#facc15' : fa.isNecklace ? '#f472b6' : '#ef4444';
+    drawFlightTrail(ctx, fa, trailColor);
     ctx.save();
     ctx.globalAlpha = Math.min(1, (1 - fa.progress) * 3);
     ctx.font = 'bold 28px Arial';
@@ -2768,7 +2913,9 @@ function drawBoard(ctx) {
       const x = GRID_X + c * CELL_SIZE;
       const y = GRID_Y + r * CELL_SIZE + (cell.yOffset || 0) + spinOff;
 
-      const alpha = cell._flash ? 1.0 : (cell.isMatched ? 0.4 : 1.0);
+      // 得分演繹期間，未得分圖示壓暗至約 60%（美術需求說明 編號11-1）
+      const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING) && winLines.length > 0;
+      const alpha = cell._flash ? 1.0 : (cell.isMatched ? 0.4 : (dimOthers ? 0.6 : 1.0));
       const scale = cell.scale !== undefined ? cell.scale : 1;
 
       if (scale !== 1) {
@@ -2783,18 +2930,105 @@ function drawBoard(ctx) {
         drawSymbol(ctx, cell.id, x, y, CELL_SIZE, alpha);
       }
 
-      ctx.strokeStyle = cell.isMatched ? '#facc15' : 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = cell.isMatched ? 3 : 1;
-      ctx.beginPath();
-      ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10);
-      ctx.stroke();
+      // 中獎格的框改由 drawWinFrames 依強度分級繪製，此處只畫一般格線
+      if (!cell.isMatched) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10);
+        ctx.stroke();
+      }
     }
   }
   ctx.restore();
 }
 
-// === 圖示隱藏倍數：預報發光（跟著圖示）+ 消除後停留顯示 ===
-function drawMultPreviewGlow(ctx) {
+// === 得分框演繹 一/二/三（美術需求說明 編號11-1，特效強度 弱/中/強）===
+// 框的粗細、顏色變幻與發光分 3 級；分級依「單線得分金額區間」，與消除特效同級連動。
+// 形狀語言刻意與預報框分開：得分框＝雙層外框，預報框＝四角刻痕，避免兩者在盤面上混淆
+const WIN_FRAME_TIERS = [
+  null,
+  { color: '#fde68a', inner: 'rgba(255,255,255,0.55)', lineW: 3, blur: [8, 16],  speed: 220, ring: 0 }, // 弱
+  { color: '#fbbf24', inner: 'rgba(255,255,255,0.75)', lineW: 5, blur: [18, 30], speed: 150, ring: 1 }, // 中
+  { color: '#f97316', inner: 'rgba(255,240,214,0.95)', lineW: 6, blur: [28, 46], speed: 100, ring: 2 }, // 強
+];
+
+function drawWinFrames(ctx) {
+  if (currentState !== STATE.SHOWING_WIN && currentState !== STATE.POPPING) return;
+  if (winLines.length === 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(GRID_X, GRID_Y, GRID_W, GRID_H);
+  ctx.clip();
+
+  const now = Date.now();
+  // 同一格屬於多條線時，取最高強度（WILD 跨組時以最強表現）
+  const best = new Map();
+  winLines.forEach(wl => {
+    const tier = wl.tier || 1;
+    wl.cells.slice(0, wl.count).forEach(({ c, r }) => {
+      const k = c * 10 + r;
+      if (!best.has(k) || best.get(k).tier < tier) best.set(k, { c, r, tier });
+    });
+  });
+
+  best.forEach(({ c, r, tier }) => {
+    const t = WIN_FRAME_TIERS[tier] || WIN_FRAME_TIERS[1];
+    const cell = board[c] && board[c][r];
+    if (!cell || cell.id === -1) return;
+    const spinOff = (colStates[c] !== 'idle') ? (colOffsets[c] + colBounce[c]) : 0;
+    const x = GRID_X + c * CELL_SIZE;
+    const y = GRID_Y + r * CELL_SIZE + (cell.yOffset || 0) + spinOff;
+    const pulse = 0.5 + 0.5 * Math.sin(now / t.speed);
+    const blur = t.blur[0] + (t.blur[1] - t.blur[0]) * pulse;
+
+    // 外層：主色發光框（顏色變幻＝亮度隨脈動起伏）
+    ctx.globalAlpha = 0.75 + 0.25 * pulse;
+    ctx.shadowColor = t.color;
+    ctx.shadowBlur = blur;
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = t.lineW;
+    ctx.beginPath();
+    ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10);
+    ctx.stroke();
+
+    // 內層：白色細線，讓框體在圖示上仍清晰
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.55 + 0.45 * pulse;
+    ctx.strokeStyle = t.inner;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 5, y + 5, CELL_SIZE - 10, CELL_SIZE - 10, 8);
+    ctx.stroke();
+
+    // 中／強級：外加同心外框（強級兩圈），以「框數」而非顏色表現層級差
+    for (let k = 1; k <= t.ring; k++) {
+      const inset = 2 - k * 3;                       // 往外擴一圈
+      ctx.globalAlpha = (0.55 - k * 0.12) + 0.25 * pulse;
+      ctx.strokeStyle = t.color;
+      ctx.shadowColor = t.color;
+      ctx.shadowBlur = blur * 0.5;
+      ctx.lineWidth = Math.max(1.5, t.lineW - k * 1.5);
+      ctx.beginPath();
+      ctx.roundRect(x + inset, y + inset, CELL_SIZE - inset * 2, CELL_SIZE - inset * 2, 11 + k * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  });
+
+  ctx.restore();
+}
+
+// === 預報框（美術需求說明 編號11-4：預報框 弱／強）===
+// 圖示落定當下即顯示、跟著圖示移動，持續存在直到該格被消除揭曉；常駐無時長、不做彈出演出。
+// 底下藏有預報對象即必然顯示（非機率觸發），顯示即必準，不做落空。
+const FORECAST_STYLE = {
+  [FORECAST.WEAK]:   { color: '#93c5fd', rgb: '147,197,253', lineW: 3, blur: [10, 20], speed: 170, fill: 0.07, corner: false }, // 弱框（強度：弱）
+  [FORECAST.STRONG]: { color: '#ffd700', rgb: '255,215,0',   lineW: 5, blur: [24, 44], speed: 105, fill: 0.16, corner: true  }, // 強框（強度：中）
+};
+
+function drawForecastFrames(ctx) {
   ctx.save();
   ctx.beginPath();
   ctx.rect(GRID_X, GRID_Y, GRID_W, GRID_H);
@@ -2802,32 +3036,43 @@ function drawMultPreviewGlow(ctx) {
 
   const now = Date.now();
 
-  // ── 一、預報發光：圖示還在盤面，帶 mult>=20 的格子亮邊框 ──
   for (let c = 0; c < COLS; c++) {
     const spinOff = (colStates[c] !== 'idle') ? (colOffsets[c] + colBounce[c]) : 0;
     for (let r = 0; r < ROWS; r++) {
       const cell = board[c][r];
-      if (!cell || cell.id === -1 || !cell.mult || cell.mult < 20) continue;
+      if (!cell || cell.id === -1) continue;
+      const lv = forecastLevelByMult(cell.mult);
+      if (lv === FORECAST.NONE) continue;
 
-      const isBright = cell.mult >= 250;
-      const pulse    = isBright ? 0.65 + 0.35 * Math.sin(now / 80)
-                                : 0.70 + 0.30 * Math.sin(now / 130);
-      // 20-100x = 紅色；250-1000x = 金色
-      const glowColor = isBright ? '#ffd700' : '#ef4444';
-      const rgb       = isBright ? '255,215,0' : '239,68,68';
-      const glowBlur  = isBright ? 38 * pulse : 18 * pulse;
-      const lineW     = isBright ? 5 : 3;
-      const fillAlpha = isBright ? 0.18 * pulse : 0.09 * pulse;
-
+      const st = FORECAST_STYLE[lv];
+      const pulse = 0.5 + 0.5 * Math.sin(now / st.speed);
+      const blur  = st.blur[0] + (st.blur[1] - st.blur[0]) * pulse;
       const x = GRID_X + c * CELL_SIZE;
       const y = GRID_Y + r * CELL_SIZE + (cell.yOffset || 0) + spinOff;
 
-      ctx.fillStyle = `rgba(${rgb},${fillAlpha})`;
-      ctx.beginPath(); ctx.roundRect(x+2, y+2, CELL_SIZE-4, CELL_SIZE-4, 10); ctx.fill();
-      ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur;
-      ctx.strokeStyle = glowColor; ctx.lineWidth = lineW;
-      ctx.beginPath(); ctx.roundRect(x+2, y+2, CELL_SIZE-4, CELL_SIZE-4, 10); ctx.stroke();
+      ctx.fillStyle = `rgba(${st.rgb},${st.fill * (0.6 + 0.4 * pulse)})`;
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.fill();
+
+      ctx.shadowColor = st.color; ctx.shadowBlur = blur;
+      ctx.strokeStyle = st.color; ctx.lineWidth = st.lineW;
+      ctx.globalAlpha = 0.8 + 0.2 * pulse;
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.stroke();
       ctx.shadowBlur = 0;
+
+      // 強框加四角刻痕，與弱框拉開層級（不做彈出，僅常駐強度差）
+      if (st.corner) {
+        const L = 12;
+        const x0 = x + 5, y0 = y + 5, x1 = x + CELL_SIZE - 5, y1 = y + CELL_SIZE - 5;
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.85 + 0.15 * pulse;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0 + L); ctx.lineTo(x0, y0); ctx.lineTo(x0 + L, y0);
+        ctx.moveTo(x1 - L, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + L);
+        ctx.moveTo(x0, y1 - L); ctx.lineTo(x0, y1); ctx.lineTo(x0 + L, y1);
+        ctx.moveTo(x1 - L, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 - L);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -2996,6 +3241,7 @@ function drawForceMenu(ctx) {
 
   const menuX = 148, menuW = 110;
   const options = [
+    { label: '🔮 必出預報框', type: 'forecast' },
     { label: '⚡ 倍數',    type: 'mult'     },
     { label: '✦ WILD',    type: 'wild'     },
     { label: '⚔️ 厄倪俄 10局', type: 'key_0' },
@@ -3083,7 +3329,8 @@ function draw() {
   drawJPPanel(ctx);
   drawChestPanel(ctx);
   drawBoard(ctx);
-  drawMultPreviewGlow(ctx);
+  drawForecastFrames(ctx);   // 預報框（弱／強）：落定即顯示，壓在得分框之下
+  drawWinFrames(ctx);        // 得分框（三級強度）
   drawRevealOverlay(ctx);
   drawWinLines(ctx);
   drawParticles(ctx);
@@ -3164,7 +3411,7 @@ canvas.addEventListener('click', e => {
   // 強開選單選項（優先判斷，避免被按鈕覆蓋）
   if (showForceMenu) {
     const menuX = 148, menuW = 110;
-    const options = ['mult', 'wild', 'key_0', 'key_1', 'crown_1', 'crown_2', 'crown_3', 'crown_4', 'necklace_1', 'necklace_2', 'necklace_3', 'necklace_4'];
+    const options = ['forecast', 'mult', 'wild', 'key_0', 'key_1', 'crown_1', 'crown_2', 'crown_3', 'crown_4', 'necklace_1', 'necklace_2', 'necklace_3', 'necklace_4'];
     const menuH = 10 + options.length * 40 - 8 + 10;
     const menuY = 658 - menuH - 6;
     let hit = false;
