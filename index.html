@@ -94,8 +94,10 @@
         #infoPanel {
             display: none;
             position: absolute;
-            left: 50px; top: 50px;
-            width: 1180px; height: 610px;
+            /* 置中於 2000×900 的畫面，不再依賴舊版 1280×720 的固定邊距 */
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: 1180px; height: 720px;
             background: rgba(8, 15, 30, 0.97);
             border: 2px solid #334155;
             border-radius: 16px;
@@ -216,12 +218,12 @@
             <h3>▌ 賠率表（押注額 × 賠率）</h3>
             <table>
               <tr><th>符號</th><th>5 個</th><th>4 個</th><th>3 個</th></tr>
-              <tr><td>⭐ 戰神意志</td><td>×12</td><td>×2.4</td><td>×0.6</td></tr>
-              <tr><td>⭐ 嗜血追擊</td><td>×10</td><td>×2.0</td><td>×0.5</td></tr>
-              <tr><td>⭐ 戰場凶兆</td><td>×8</td><td>×1.6</td><td>×0.4</td></tr>
-              <tr><td>征服火輪</td><td>×6</td><td>×1.2</td><td>×0.3</td></tr>
-              <tr><td>風暴突擊</td><td>×4</td><td>×0.8</td><td>×0.2</td></tr>
-              <tr><td>不屈戰魂</td><td>×2</td><td>×0.4</td><td>×0.1</td></tr>
+              <tr><td>⭐ 阿瑞斯</td><td>×12</td><td>×2.4</td><td>×0.6</td></tr>
+              <tr><td>⭐ 希波麗塔</td><td>×10</td><td>×2.0</td><td>×0.5</td></tr>
+              <tr><td>⭐ 牛頭人</td><td>×8</td><td>×1.6</td><td>×0.4</td></tr>
+              <tr><td>蜥蜴人</td><td>×6</td><td>×1.2</td><td>×0.3</td></tr>
+              <tr><td>劍</td><td>×4</td><td>×0.8</td><td>×0.2</td></tr>
+              <tr><td>盾</td><td>×2</td><td>×0.4</td><td>×0.1</td></tr>
             </table>
 
             <h3>▌ 號角收集與獎勵</h3>
@@ -1831,8 +1833,8 @@ function updateErisMultiplierAnim() {
     if (erisMultiplierAnim.timer >= 22) {
       erisMultiplierAnim.phase = 'fly';
       erisMultiplierAnim.timer = 0;
-      erisMultiplierAnim.flyX = 640;
-      erisMultiplierAnim.flyY = 332;
+      erisMultiplierAnim.flyX = VIEW_W / 2;
+      erisMultiplierAnim.flyY = VIEW_H / 2;
     }
     return;
   }
@@ -2120,7 +2122,7 @@ function startNextJP() {
   jpWinAnim = { active: true, timer: 300, monsterName: label, value };
   for (let i = 0; i < 70; i++) {
     const ang = Math.random() * Math.PI * 2, spd = 4 + Math.random() * 8;
-    jpWinParticles.push({ x: 640, y: 360, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+    jpWinParticles.push({ x: VIEW_W / 2, y: VIEW_H / 2, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
       life: 160, maxLife: 160,
       color: 'hsl(' + (hue + Math.floor(Math.random()*40 - 20)) + ',95%,65%)',
       size: 5 + Math.random() * 6 });
@@ -2432,7 +2434,7 @@ function grantBossCardJP(cardIdx) {
   for (let i = 0; i < 70; i++) {
     const ang = Math.random() * Math.PI * 2;
     const spd = 4 + Math.random() * 8;
-    jpWinParticles.push({ x: 640, y: 360, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+    jpWinParticles.push({ x: VIEW_W / 2, y: VIEW_H / 2, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
       life: 160, maxLife: 160,
       color: 'hsl(' + Math.floor(Math.random() * 60) + ',95%,65%)',
       size: 5 + Math.random() * 6 });
@@ -2463,7 +2465,7 @@ function drawBossCardPick(ctx) {
 
   const CW = 200, CH = 280; // 牌尺寸
   const gap = 80;
-  const cx = 640, cy = 330;
+  const cx = VIEW_W / 2, cy = VIEW_H / 2;
   const card0x = cx - gap / 2 - CW; // 左牌左邊 x
   const card1x = cx + gap / 2;      // 右牌左邊 x
   const cardY = cy - CH / 2;
@@ -2741,7 +2743,7 @@ function drawChestUnlockAnim(ctx) {
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  const bw = 440, bh = isBossSlot ? 170 : 150, bx = 640 - bw/2, by = 300 - bh/2;
+  const bw = 440, bh = isBossSlot ? 170 : 150, bx = VIEW_W / 2 - bw / 2, by = VIEW_H / 2 - bh / 2;
   const grad = ctx.createLinearGradient(bx, by, bx, by+bh);
   grad.addColorStop(0, '#1a2744'); grad.addColorStop(1, '#0f172a');
   ctx.fillStyle = grad;
@@ -2756,24 +2758,24 @@ function drawChestUnlockAnim(ctx) {
   if (isBossSlot) {
     // 宙斯 & 赫拉 解鎖
     ctx.font = '44px Arial';
-    ctx.fillText('⚡', 640 - 32, by + 54);
-    ctx.fillText('👑', 640 + 32, by + 54);
+    ctx.fillText('⚡', VIEW_W / 2 - 32, by + 54);
+    ctx.fillText('👑', VIEW_W / 2 + 32, by + 54);
     ctx.fillStyle = '#fde68a'; ctx.font = 'bold 22px Arial';
     ctx.shadowColor = '#facc15'; ctx.shadowBlur = 14;
-    ctx.fillText('🎁 解鎖 宙斯 & 赫拉！', 640, by + 105);
+    ctx.fillText('🎁 解鎖 宙斯 & 赫拉！', VIEW_W / 2, by + 105);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px Arial';
-    ctx.fillText('本局收集 6 把號角，Boss 降臨！', 640, by + 138);
+    ctx.fillText('本局收集 6 把號角，Boss 降臨！', VIEW_W / 2, by + 138);
   } else {
     // 一般寶箱解鎖
     ctx.font = '46px Arial';
-    ctx.fillText(chest.icon, 640, by + 52);
+    ctx.fillText(chest.icon, VIEW_W / 2, by + 52);
     ctx.fillStyle = chest.textColor; ctx.font = 'bold 23px Arial';
     ctx.shadowColor = chest.glowColor; ctx.shadowBlur = 14;
-    ctx.fillText('🎁 解鎖 ' + chest.label + '！', 640, by + 105);
+    ctx.fillText('🎁 解鎖 ' + chest.label + '！', VIEW_W / 2, by + 105);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px Arial';
-    ctx.fillText('本局收集 ' + chest.keys + ' 把號角', 640, by + 135);
+    ctx.fillText('本局收集 ' + chest.keys + ' 把號角', VIEW_W / 2, by + 135);
   }
   ctx.restore();
 }
@@ -2801,7 +2803,7 @@ function updateFlyingAttacks() {
               for (let i = 0; i < 50; i++) {
                 const ang = Math.random() * Math.PI * 2;
                 const spd = 4 + Math.random() * 6;
-                jpWinParticles.push({ x: 640, y: 360, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+                jpWinParticles.push({ x: VIEW_W / 2, y: VIEW_H / 2, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
                   life: 120, maxLife: 120, color: 'hsl('+Math.floor(Math.random()*360)+',90%,65%)', size: 5+Math.random()*5 });
               }
             }
@@ -2886,7 +2888,7 @@ function drawJPWinAnim(ctx) {
 
   // 中央文字框
   ctx.save(); ctx.globalAlpha = alpha;
-  const bw = 520, bh = 160, bx = 640 - bw/2, by = 360 - bh/2;
+  const bw = 520, bh = 160, bx = VIEW_W / 2 - bw / 2, by = VIEW_H / 2 - bh / 2;
   const grad = ctx.createLinearGradient(bx, by, bx, by+bh);
   grad.addColorStop(0, '#78350f'); grad.addColorStop(1, '#1c0a00');
   ctx.fillStyle = grad; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 20); ctx.fill();
@@ -2897,9 +2899,9 @@ function drawJPWinAnim(ctx) {
   ctx.fillStyle = '#ffd700'; ctx.font = 'bold 58px Arial';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 30;
-  ctx.fillText('🏆 ' + monsterName + ' JP！', 640, 345);
+  ctx.fillText('🏆 ' + monsterName + ' JP！', VIEW_W / 2, by + 65);
   ctx.font = 'bold 36px Arial'; ctx.fillStyle = '#fff'; ctx.shadowBlur = 0;
-  ctx.fillText('+' + value.toLocaleString(), 640, 400);
+  ctx.fillText('+' + value.toLocaleString(), VIEW_W / 2, by + 120);
   ctx.restore();
 }
 
@@ -3780,7 +3782,7 @@ canvas.addEventListener('click', e => {
 
   // Boss 抽牌：選牌
   if (bossCardPick.active && bossCardPick.phase === 'picking') {
-    const CW = 200, CH = 280, gap = 80, cx = 640, cy = 330;
+    const CW = 200, CH = 280, gap = 80, cx = VIEW_W / 2, cy = VIEW_H / 2;
     const card0x = cx - gap / 2 - CW, card1x = cx + gap / 2;
     const cardY = cy - CH / 2;
     [card0x, card1x].forEach((bx, i) => {
@@ -3872,7 +3874,7 @@ canvas.addEventListener('mousemove', e => {
 
   // Boss 抽牌：hover 偵測
   if (bossCardPick.active && bossCardPick.phase === 'picking') {
-    const CW = 200, CH = 280, gap = 80, cx = 640, cy = 330;
+    const CW = 200, CH = 280, gap = 80, cx = VIEW_W / 2, cy = VIEW_H / 2;
     const card0x = cx - gap / 2 - CW, card1x = cx + gap / 2;
     const cardY = cy - CH / 2;
     let newHover = -1;
