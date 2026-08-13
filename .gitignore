@@ -1,0 +1,12 @@
+# Windows 縮圖快取（2D 素材資料夾內會自動產生）
+Thumbs.db
+**/Thumbs.db
+
+# 本機備份與截圖測試檔，不進版控
+*.bak-*
+*.bak2-*
+_shot_*.html
+
+# 內部規格文件與舊版快照，不推上公開的 GitHub Pages repo
+*.xlsx
+0511_*.html
