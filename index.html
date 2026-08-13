@@ -316,8 +316,10 @@ const GRID_Y = 299;
 
 // 版面座標表（依 2D 素材原生尺寸配置）
 const LAYOUT = {
-  jpZeus:     { x: 600,  y: 8,   w: 322,  h: 74 },   // jp_zeus.png
-  jpHera:     { x: 1078, y: 8,   w: 322,  h: 70 },   // jp_hera.png
+  // numX/numY＝彩金數字相對牌左上角的中心位置。兩張牌的徽章方向相反
+  // （宙斯徽章在左、赫拉徽章在右），所以數字中心不對稱。
+  jpZeus:     { x: 600,  y: 8,   w: 322,  h: 74, numX: 173, numY: 46 },
+  jpHera:     { x: 1078, y: 8,   w: 322,  h: 70, numX: 150, numY: 44 },
   jpFrame:    { x: 304,  y: 88,  w: 1391, h: 78 },   // jp_frame.png（MINI/MAJOR/MINOR）
   crownBase:  { x: 596,  y: 170, w: 216,  h: 52 },   // jp_collect_base.png（皇冠 ×4）
   tumbleBase: { x: 817,  y: 169, w: 366,  h: 54 },   // ng_tumble_base.png
@@ -3503,12 +3505,12 @@ function drawTopUI(ctx) {
   // ── 宙斯／赫拉 JP 牌（層級 1：彩金數字最上位）──
   if (ASSETS.jpZeus) ctx.drawImage(ASSETS.jpZeus, L.jpZeus.x, L.jpZeus.y, L.jpZeus.w, L.jpZeus.h);
   if (ASSETS.jpHera) ctx.drawImage(ASSETS.jpHera, L.jpHera.x, L.jpHera.y, L.jpHera.w, L.jpHera.h);
-  ctx.font = 'bold 30px Georgia';
+  ctx.font = 'bold 27px Georgia';
   ctx.fillStyle = '#ffe6a3';
   ctx.shadowColor = 'rgba(0,0,0,0.85)';
   ctx.shadowBlur = 6;
-  ctx.fillText(fmtMoney(zeus ? zeus.jackpot : 999999), L.jpZeus.x + 192, L.jpZeus.y + 50);
-  ctx.fillText(fmtMoney(hera ? hera.jackpot : 888888), L.jpHera.x + 192, L.jpHera.y + 48);
+  ctx.fillText(fmtMoney(zeus ? zeus.jackpot : 999999), L.jpZeus.x + L.jpZeus.numX, L.jpZeus.y + L.jpZeus.numY);
+  ctx.fillText(fmtMoney(hera ? hera.jackpot : 888888), L.jpHera.x + L.jpHera.numX, L.jpHera.y + L.jpHera.numY);
   ctx.shadowBlur = 0;
 
   // ── MINI / MAJOR / MINOR 條：彩金倍數 ×10 / ×100 / ×25（規格賠率表）──
@@ -3647,10 +3649,12 @@ function drawSwordPanel(ctx) {
     ctx.fillText('SPINS', S.cx, py + 146);
   } else {
     // ── 4 個菱形凹槽 ──
+    // 由下往上填充：收集第 1 顆亮最下格，第 3 顆亮到上面數來第 2 格（10 FREE SPINS），
+    // 第 4 顆亮到最上格（15 FREE SPINS）——門檻數字因此標在上面兩格。
     const slotY = [445, 525, 605, 685];
-    const LABELS = { 2: '10', 3: '15' };   // 第 3、4 凹槽的門檻數字
+    const LABELS = { 0: '15', 1: '10' };
     slotY.forEach((sy, i) => {
-      const lit = i < collected;
+      const lit = i >= slotY.length - collected;
       const R = 27;
       ctx.beginPath();
       ctx.moveTo(S.cx, sy - R); ctx.lineTo(S.cx + R, sy);
@@ -3665,7 +3669,7 @@ function drawSwordPanel(ctx) {
       ctx.stroke();
 
       if (LABELS[i] !== undefined) {
-        const done = collected >= i + 1;
+        const done = collected >= slotY.length - i;   // 上面數來第 1 格＝4 顆、第 2 格＝3 顆
         ctx.font = 'bold 20px Georgia';
         ctx.fillStyle = done ? '#fff0b8' : '#9a8a6a';
         if (done) { ctx.shadowColor = '#ffcf5c'; ctx.shadowBlur = 14 * breathe; }
