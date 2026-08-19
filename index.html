@@ -132,6 +132,17 @@
             cursor: move; user-select: none; touch-action: none;
         }
         #tuneDragBar:hover { color: #94a3b8; }
+        #tuneClose {
+            position: absolute;
+            top: 5px; right: 8px;
+            width: 26px; height: 24px;
+            background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; border-radius: 6px;
+            font-size: 14px; line-height: 1; padding: 0;
+            cursor: pointer; z-index: 3;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #tuneClose:hover { background: #7f1d1d; border-color: #ef4444; color: #fecaca; }
         #tuneTabs { display: flex; gap: 6px; padding: 10px 12px 0; }
         .tune-tab {
             flex: 1;
@@ -319,6 +330,7 @@
     <canvas id="gameCanvas" width="2000" height="900"></canvas>
 
     <div id="tunePanel">
+        <button id="tuneClose" title="關閉面板">✕</button>
         <div id="tuneDragBar">⠿ 調校面板（按住此列可拖曳移動）</div>
         <div id="tuneTabs">
             <button class="tune-tab active" data-tab="timing">⏱️ 節奏</button>
@@ -4419,12 +4431,14 @@ function refreshTuneBody() {
   if (tuneTab === 'timing') buildTimingTab(); else buildFxTab();
 }
 
-tuneBtn.addEventListener('click', function () {
-  tunePanelOpen = !tunePanelOpen;
-  tunePanel.classList.toggle('visible', tunePanelOpen);
-  tuneBtn.classList.toggle('active', tunePanelOpen);
-  if (tunePanelOpen) refreshTuneBody();
-});
+function setTunePanelOpen(open) {
+  tunePanelOpen = open;
+  tunePanel.classList.toggle('visible', open);
+  tuneBtn.classList.toggle('active', open);
+  if (open) refreshTuneBody();
+}
+tuneBtn.addEventListener('click', function () { setTunePanelOpen(!tunePanelOpen); });
+document.getElementById('tuneClose').addEventListener('click', function () { setTunePanelOpen(false); });
 
 tunePanel.querySelectorAll('.tune-tab').forEach(function (tab) {
   tab.addEventListener('click', function () {
