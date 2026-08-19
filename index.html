@@ -90,6 +90,132 @@
         }
         #statsBtn:hover { background-color: #38bdf8; color: #fff; border-color: #0284c7; }
         #statsBtn.active { border-color: #38bdf8; color: #38bdf8; }
+        /* === 調校面板（節奏 / 特效）=== */
+        #tuneBtn {
+            position: absolute;
+            top: 70px; left: 15px;
+            width: 45px; height: 45px;
+            background-color: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            color: #cbd5e1;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            padding: 0;
+        }
+        #tuneBtn:hover { background-color: #38bdf8; color: #fff; border-color: #0284c7; }
+        #tuneBtn.active { border-color: #facc15; color: #facc15; }
+        #tunePanel {
+            display: none;
+            position: absolute;
+            top: 15px; left: 70px;
+            width: 430px; max-height: 840px;
+            background: rgba(8, 15, 30, 0.97);
+            border: 2px solid #334155;
+            border-radius: 14px;
+            z-index: 250;
+            color: #e2e8f0;
+            font-size: 13px;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tunePanel.visible { display: flex; }
+        #tuneDragBar {
+            padding: 7px 12px 5px;
+            color: #64748b; font-size: 11px; letter-spacing: 1px;
+            background: #0b1322;
+            border-bottom: 1px solid #1e293b;
+            cursor: move; user-select: none; touch-action: none;
+        }
+        #tuneDragBar:hover { color: #94a3b8; }
+        #tuneTabs { display: flex; gap: 6px; padding: 10px 12px 0; }
+        .tune-tab {
+            flex: 1;
+            background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; border-radius: 8px 8px 0 0;
+            padding: 6px 0; cursor: pointer; font-size: 13px;
+        }
+        .tune-tab.active { background: #0f3460; color: #38bdf8; border-color: #38bdf8; }
+        #tuneBody {
+            overflow-y: auto;
+            padding: 8px 14px 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 transparent;
+        }
+        .tune-group {
+            margin: 10px 0 4px;
+            color: #38bdf8; font-size: 12px; letter-spacing: 1px;
+            border-bottom: 1px solid #1e293b; padding-bottom: 2px;
+        }
+        .tune-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+        .tune-row label { flex: 0 0 130px; color: #cbd5e1; font-size: 12px; }
+        .tune-row input[type=range] { flex: 1; min-width: 0; accent-color: #38bdf8; }
+        .tune-row input[type=number] {
+            width: 62px;
+            background: #0b1322; border: 1px solid #334155;
+            color: #f8fafc; border-radius: 6px;
+            padding: 2px 4px; font-size: 12px;
+        }
+        .tune-actions {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            padding: 10px 14px; border-top: 1px solid #1e293b;
+        }
+        .tune-actions button {
+            background: #1e293b; border: 1px solid #475569;
+            color: #cbd5e1; border-radius: 8px;
+            padding: 6px 0; cursor: pointer; font-size: 13px;
+        }
+        .tune-actions button:hover { background: #0f3460; border-color: #38bdf8; color: #38bdf8; }
+        #tuneApplySpin {
+            grid-column: 1 / -1;
+            background: #0f766e; border-color: #14b8a6;
+            color: #f0fdfa; font-weight: 700;
+        }
+        #tuneApplySpin:hover { background: #0d9488; border-color: #5eead4; color: #fff; }
+        #tuneStatus {
+            grid-column: 1 / -1; min-height: 16px;
+            color: #64748b; font-size: 11px; line-height: 16px; text-align: center;
+        }
+        #tuneStatus.ok { color: #86efac; }
+        #tuneStatus.wait { color: #fde68a; }
+        .tune-hint { color: #64748b; font-size: 11px; margin: 6px 0; line-height: 1.6; }
+        .gantt-editor {
+            margin: 6px 0 10px; padding: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid #1e293b; border-radius: 8px;
+        }
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 104px minmax(110px, 1fr) 46px 46px;
+            gap: 5px; align-items: center; margin: 6px 0;
+            color: #cbd5e1; font-size: 11px;
+        }
+        .gantt-row > label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gantt-track {
+            position: relative; height: 20px; border-radius: 6px;
+            background: repeating-linear-gradient(90deg, #0f172a 0, #0f172a 23px, #1e293b 24px);
+            overflow: hidden; cursor: pointer;
+        }
+        .gantt-bar {
+            position: absolute; top: 3px; height: 14px; min-width: 8px;
+            border-radius: 5px; cursor: grab;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+        }
+        .gantt-bar:active { cursor: grabbing; }
+        .gantt-handle {
+            position: absolute; top: 0; right: 0; width: 8px; height: 100%;
+            background: rgba(255, 255, 255, 0.35); cursor: ew-resize;
+        }
+        .gantt-row input {
+            width: 44px; box-sizing: border-box;
+            background: #0b1322; border: 1px solid #334155;
+            color: #f8fafc; border-radius: 5px;
+            padding: 2px 3px; font-size: 11px;
+        }
 
         #infoPanel {
             display: none;
@@ -189,7 +315,23 @@
 <div id="game-container">
     <button id="fsBtn" title="全螢幕 (Fullscreen)">⛶</button>
     <button id="statsBtn" class="active" title="測試面板">📊</button>
+    <button id="tuneBtn" title="調校面板（節奏／特效）">🔧</button>
     <canvas id="gameCanvas" width="2000" height="900"></canvas>
+
+    <div id="tunePanel">
+        <div id="tuneDragBar">⠿ 調校面板（按住此列可拖曳移動）</div>
+        <div id="tuneTabs">
+            <button class="tune-tab active" data-tab="timing">⏱️ 節奏</button>
+            <button class="tune-tab" data-tab="fx">✨ 特效</button>
+        </div>
+        <div id="tuneBody"></div>
+        <div class="tune-actions">
+            <button id="tuneApplySpin">套用並試轉</button>
+            <button id="tuneReset">重設為預設</button>
+            <button id="tuneExport">匯出全部設定</button>
+            <div id="tuneStatus" aria-live="polite"></div>
+        </div>
+    </div>
 
     <div id="infoPanel">
         <button id="infoPanelClose">✕</button>
@@ -347,6 +489,149 @@ const FLY_TARGET = {
   mult:  { x: 430,  y: 320 },   // 隨機倍數 → 倍數欄（同 SWORD.cx / discY）
 };
 
+
+// ============================================================
+// === 調校系統：節奏（秒）與特效強度的單一事實來源 ===========
+// 面板可即時調整；預設值＝改造前的行為（幀數換算為秒，60fps）
+// ============================================================
+const TF = s => Math.max(1, Math.round(s * 60));   // 秒 → 幀
+
+const DEFAULT_TIMING = {
+  // 掉落（停輪）
+  reelStartDelay:   0.13,  // 每欄啟動錯開（原 8 幀）
+  reelFirstStop:    0.50,  // 第 1 輪轉動時長（原 30 幀）
+  reelStopInterval: 0.17,  // 每輪落定間隔（原 +10 幀）
+  reelSpeed:        0.1435, // 捲動一格所需時間（原 155px ÷ 18px/幀 ≈ 8.6 幀）
+  landBounce:       0.10,  // 落定回彈衰減時長
+  // 消除／得分
+  winDisplay:       1.50,  // 中獎高亮停留（原 90 幀）
+  popShrink:        0.25,  // 得分圖示縮小消失（原 15 幀）
+  scoreHold:        0.58,  // 得分數字停留後才上飛（原 35 幀）
+  // 特殊物件揭曉
+  revealHold:       0.80,  // 所有指示器同時停留（原 48 幀）
+  revealFire:       0.13,  // 依序飛出的間隔（原 8 幀）
+  revealPreHold:    0.75,  // 觸發前停留（原 45 幀）
+  revealAfter:      0.37,  // 效果發動後緩衝（原 22 幀）
+  multHold:         0.58,  // 倍數揭曉停留（原 35 幀）
+  // 補盤
+  refillPerCell:    0.1845, // 每格掉落時間（原 155px ÷ 14px/幀 ≈ 11 幀）
+  // 共用飛行演繹
+  flyMult:          0.67,  // 隨機倍數飛向倍數欄（原 progress +0.025/幀）
+  flyCollect:       0.56,  // 蒐集物／皇冠／羽扇飛行（原 +0.03/幀）
+  // 局末結算
+  settleFly:        0.58,  // 倍數飛向得分欄（原 35 幀）
+  settleFormula:    1.03,  // 「得分 × 倍數」公式停留（原 62 幀）
+  // 局間與報獎
+  autoSpinDelay:    0.50,  // AUTO 局間停頓（原 30 幀）
+  chestUnlock:      2.50,  // 機制解鎖面板停留（原 150 幀）
+  jpWinHold:        4.00,  // JP 報獎停留（原 240 幀）
+};
+
+const DEFAULT_FX = {
+  // 預報框（編號11-4）
+  fcWeakMin:      10,    // 弱框倍數下限
+  fcStrongMin:    50,    // 強框倍數下限
+  fcWeakLine:     3,     // 弱框線寬
+  fcWeakGlow:     20,    // 弱框發光上限
+  fcWeakPulse:    170,   // 弱框脈動週期（ms，越小越快）
+  fcWeakFill:     0.07,  // 弱框填色濃度
+  fcStrongLine:   5,
+  fcStrongGlow:   44,
+  fcStrongPulse:  105,
+  fcStrongFill:   0.16,
+  // 得分框（編號11-1）三級
+  winTier2Ratio:  1,     // 單線得分 ÷ 押注 ≥ 此值 → 中級
+  winTier3Ratio:  4,     // ≥ 此值 → 強級
+  winLine1:       3,  winLine2:  5,  winLine3:  6,    // 線寬
+  winGlow1:      16,  winGlow2: 30,  winGlow3: 46,    // 發光上限
+  winPulse1:    220,  winPulse2:150,  winPulse3:100,  // 脈動週期（ms）
+  dimAlpha:       0.60,  // 未得分圖示壓暗至（0~1）
+  // 消除演繹（編號11-3）三級
+  popCount1:      8,  popCount2: 14,  popCount3: 22,  // 粒子數
+  popSize1:       8,  popSize2:  10,  popSize3:  12,  // 粒子最大尺寸
+  popRing2:      46,  popRing3:  62,                  // 衝擊環半徑（弱級不做）
+  popFlash2:      0.25, popFlash3: 0.45,              // 環心白閃濃度
+  // 共用飛行演繹（編號11-5）
+  flightArc:     90,     // 拋物線最高點偏移（px）
+  flightTrail:   14,     // 拖尾取樣點數
+  // 倍數欄區間強度（編號13）
+  multLv1:       10, multLv2: 20, multLv3: 30, multLv4: 40,
+};
+
+// 面板顯示：分組、中文名、[min, max, step]（省略＝節奏 0~5 秒 / 步進 0.05）
+const TIMING_META = [
+  { group: '掉落（停輪）', items: [
+    ['reelStartDelay','每欄啟動錯開'], ['reelFirstStop','第1輪落定'], ['reelStopInterval','每輪落定間隔'],
+    ['reelSpeed','捲動一格時間', 0.03, 0.5, 0.01], ['landBounce','落定回彈']] },
+  { group: '消除／得分', items: [
+    ['winDisplay','中獎高亮停留'], ['popShrink','圖示縮小消失'], ['scoreHold','得分數字停留']] },
+  { group: '特殊物件揭曉', items: [
+    ['revealHold','指示器同時停留'], ['revealFire','依序飛出間隔'], ['revealPreHold','觸發前停留'],
+    ['revealAfter','發動後緩衝'], ['multHold','倍數揭曉停留']] },
+  { group: '補盤', items: [
+    ['refillPerCell','每格掉落時間', 0.03, 1, 0.01]] },
+  { group: '共用飛行演繹', items: [
+    ['flyMult','倍數飛行'], ['flyCollect','蒐集物飛行']] },
+  { group: '局末結算', items: [
+    ['settleFly','倍數飛向得分欄'], ['settleFormula','乘倍公式停留']] },
+  { group: '局間／報獎', items: [
+    ['autoSpinDelay','AUTO 局間停頓'], ['chestUnlock','機制解鎖停留'], ['jpWinHold','JP 報獎停留', 0, 8, 0.1]] },
+];
+
+const FX_META = [
+  { group: '預報框（弱／強）', items: [
+    ['fcWeakMin','弱框倍數下限', 2, 100, 1], ['fcStrongMin','強框倍數下限', 2, 500, 1],
+    ['fcWeakLine','弱框線寬', 1, 12, 0.5], ['fcWeakGlow','弱框發光', 0, 80, 1],
+    ['fcWeakPulse','弱框脈動週期(ms)', 40, 600, 5], ['fcWeakFill','弱框填色', 0, 0.6, 0.01],
+    ['fcStrongLine','強框線寬', 1, 12, 0.5], ['fcStrongGlow','強框發光', 0, 80, 1],
+    ['fcStrongPulse','強框脈動週期(ms)', 40, 600, 5], ['fcStrongFill','強框填色', 0, 0.6, 0.01]] },
+  { group: '得分框（三級）', items: [
+    ['winTier2Ratio','中級門檻(÷押注)', 0.1, 20, 0.1], ['winTier3Ratio','強級門檻(÷押注)', 0.1, 40, 0.1],
+    ['winLine1','弱級線寬', 1, 12, 0.5], ['winLine2','中級線寬', 1, 12, 0.5], ['winLine3','強級線寬', 1, 14, 0.5],
+    ['winGlow1','弱級發光', 0, 80, 1], ['winGlow2','中級發光', 0, 80, 1], ['winGlow3','強級發光', 0, 100, 1],
+    ['winPulse1','弱級脈動(ms)', 40, 600, 5], ['winPulse2','中級脈動(ms)', 40, 600, 5], ['winPulse3','強級脈動(ms)', 40, 600, 5],
+    ['dimAlpha','未得分壓暗(0~1)', 0, 1, 0.05]] },
+  { group: '消除演繹（三級）', items: [
+    ['popCount1','弱級粒子數', 0, 60, 1], ['popCount2','中級粒子數', 0, 60, 1], ['popCount3','強級粒子數', 0, 80, 1],
+    ['popSize1','弱級粒子大小', 1, 30, 1], ['popSize2','中級粒子大小', 1, 30, 1], ['popSize3','強級粒子大小', 1, 40, 1],
+    ['popRing2','中級衝擊環', 0, 160, 2], ['popRing3','強級衝擊環', 0, 200, 2],
+    ['popFlash2','中級環心白閃', 0, 1, 0.05], ['popFlash3','強級環心白閃', 0, 1, 0.05]] },
+  { group: '共用飛行演繹', items: [
+    ['flightArc','拋物線高度(px)', 0, 300, 5], ['flightTrail','拖尾長度(點)', 0, 40, 1]] },
+  { group: '倍數欄區間強度', items: [
+    ['multLv1','LV1 門檻', 2, 100, 1], ['multLv2','LV2 門檻', 2, 200, 1],
+    ['multLv3','LV3 門檻', 2, 300, 1], ['multLv4','LV4 門檻', 2, 500, 1]] },
+];
+
+const TIMING_RANGE = {};
+TIMING_META.forEach(g => g.items.forEach(it => {
+  TIMING_RANGE[it[0]] = [it[2] !== undefined ? it[2] : 0, it[3] !== undefined ? it[3] : 5, it[4] !== undefined ? it[4] : 0.05];
+}));
+const FX_RANGE = {};
+FX_META.forEach(g => g.items.forEach(it => { FX_RANGE[it[0]] = [it[2], it[3], it[4]]; }));
+
+let TIMING = { ...DEFAULT_TIMING };
+let FX = { ...DEFAULT_FX };
+
+// 甘特圖：非時間值（強度／門檻／px）用數值滑桿，不畫色條
+const NON_GANTT_TIMING = new Set([]);
+// 各演繹在「所屬階段時間軸」上的起點（秒）
+const GANTT_START_PRESET = {
+  reelStartDelay: 0.00, reelFirstStop: 0.00, reelStopInterval: 0.50, reelSpeed: 0.00, landBounce: 0.50,
+  winDisplay: 0.00, popShrink: 1.50, scoreHold: 0.00,
+  revealHold: 0.00, revealFire: 0.80, revealPreHold: 0.00, revealAfter: 0.75, multHold: 0.00,
+  refillPerCell: 0.00,
+  flyMult: 0.00, flyCollect: 0.00,
+  settleFly: 0.00, settleFormula: 0.58,
+  autoSpinDelay: 0.00, chestUnlock: 0.00, jpWinHold: 0.00,
+};
+const DEFAULT_TIMING_START = {};
+TIMING_META.forEach(g => g.items.forEach(([key]) => {
+  DEFAULT_TIMING_START[key] = GANTT_START_PRESET[key] !== undefined ? GANTT_START_PRESET[key] : 0;
+}));
+let TIMING_START = { ...DEFAULT_TIMING_START };
+const TIMING_COLORS = ['#38bdf8', '#facc15', '#fb7185', '#a78bfa', '#34d399', '#f97316', '#60a5fa'];
+
 // 圖示定名與主要色調依 260810 規格「美術需求說明」分頁；順序＝icon00~icon05
 const SYMBOLS = [
   { id: 0, name: '阿瑞斯',   color: '#f4652f' },  // 橘紅火焰
@@ -437,8 +722,8 @@ function rollSpinMult(c) {
 const FORECAST = { NONE: 0, WEAK: 1, STRONG: 2 };
 
 function forecastLevelByMult(mult) {
-  if (!mult || mult < 10) return FORECAST.NONE;
-  return mult >= 50 ? FORECAST.STRONG : FORECAST.WEAK;
+  if (!mult || mult < FX.fcWeakMin) return FORECAST.NONE;
+  return mult >= FX.fcStrongMin ? FORECAST.STRONG : FORECAST.WEAK;
 }
 // 註：收集物（皇冠／項鍊／號角）的預報門檻（第 1~2 顆弱、第 3~4 顆強）尚未實作。
 // 本 DEMO 的收集物是「消除後於底列生成並立即飛出收集」，沒有藏在圖示底下等待揭曉的階段，
@@ -449,8 +734,8 @@ function forecastLevelByMult(mult) {
 // 門檻以「單線得分 ÷ 押注額」計：<1 弱、1~4 中、>=4 強（規格門檻待補，此為 DEMO 暫定值）
 function winTierByLineWin(lineWin) {
   const ratio = betAmount > 0 ? lineWin / betAmount : 0;
-  if (ratio >= 4) return 3;
-  if (ratio >= 1) return 2;
+  if (ratio >= FX.winTier3Ratio) return 3;
+  if (ratio >= FX.winTier2Ratio) return 2;
   return 1;
 }
 
@@ -509,7 +794,7 @@ let necklaceCount = 0; // 赫拉：累積項鍊數（每局重置，到3觸發JP
 let pendingMultToScoreApply = null; // JP動畫播放中時暫存倍數結算資料
 let triggeredChests = new Set(); // 本局已觸發的機制 idx（每次 SPIN 重置）
 let chestUnlockAnim = { active: false, timer: 0, idx: -1 }; // 解鎖動畫
-const CHEST_UNLOCK_FRAMES = 150;
+let CHEST_UNLOCK_FRAMES = 150;
 let pendingChestReward = -1; // 動畫結束後要觸發的獎勵 idx
 let showFGPanel = false;     // 厄倪俄：進入 FG 的面板
 let inFG = false;            // 是否在 Free Game 中
@@ -545,7 +830,7 @@ let pendingMultFlights = [];      // checkPaylines 蒐集的帶倍數格 [{value
 let multFlightSeq = [];           // 飛行佇列 [{value,c,r,fx,fy}]（含格子座標以便管理格子）
 let multFlightIdx = 0;
 let multFlightTimer = 0;
-const MULT_HOLD_FRAMES = 35;      // 倍數停留幀數
+let MULT_HOLD_FRAMES = 35;      // 倍數停留幀數
 let erisMultiplierAnim = {
   active: false,
   phase: 'idle',          // idle | intro | rolling | settle | fly | land
@@ -562,8 +847,8 @@ let erisMultiplierAnim = {
 let unifiedRevealSeq = [];   // [{type:'mult'|'key'|'wild', c, r, fx, fy, value?}]
 let unifiedRevealIdx = 0;    // 目前飛出的索引（hold 階段固定為 0）
 let unifiedRevealTimer = 0;  // 全局計時器
-const UNIFIED_HOLD_FRAMES = 48;  // 所有指示器同時停留的幀數
-const FIRE_INTERVAL = 8;         // 依序飛出的間隔（幀）
+let UNIFIED_HOLD_FRAMES = 48;  // 所有指示器同時停留的幀數
+let FIRE_INTERVAL = 8;         // 依序飛出的間隔（幀）
 let scoreTexts = [];
 let comboTexts = [];
 
@@ -655,10 +940,10 @@ for (let _i = 0; _i <= 9; _i++) ASSET_FILES['inNum' + _i] = '2D/進出場彈窗/
 let ASSETS = {};   // key -> HTMLImageElement（載入失敗為 null）
 
 
-const SPIN_FRAMES = [30, 40, 50, 60, 70];
-const BOUNCE_AMPLITUDE = 12;
-const AUTO_SPIN_DELAY = 30;
-const WIN_DISPLAY_FRAMES = 90;
+let SPIN_FRAMES = [30, 40, 50, 60, 70];
+let BOUNCE_AMPLITUDE = 12;
+let AUTO_SPIN_DELAY = 30;
+let WIN_DISPLAY_FRAMES = 90;
 const EMPTY_HOLD_FRAMES = 35;  // 消除後空格保留時長（幀數，≈ 0.6秒）
 
 // === 初始化 ===
@@ -794,13 +1079,13 @@ function startSpin() {
   for (let c = 0; c < COLS; c++) {
     colOffsets[c] = 0;
     colStates[c] = 'spinning';
-    colDelays[c] = c * 8;
+    colDelays[c] = c * TF(TIMING.reelStartDelay);
     colSpinFrames[c] = SPIN_FRAMES[c];
     colBounce[c] = 0;
   }
 }
 
-const SPIN_SPEED = 18;
+let SPIN_SPEED = 18;
 
 function updateSpinning() {
   let allDone = true;
@@ -835,7 +1120,7 @@ function updateSpinning() {
         }
       }
     } else if (colStates[c] === 'stopping') {
-      colBounce[c] *= 0.6;
+      colBounce[c] *= BOUNCE_DECAY;
       if (Math.abs(colBounce[c]) < 0.5) {
         colBounce[c] = 0;
         colStates[c] = 'idle';
@@ -919,7 +1204,7 @@ function checkPaylines() {
         value: thisWin,
         x: GRID_X + GRID_W / 2, y: GRID_Y + GRID_H / 2 + 28,
         tx: FLY_TARGET.score.x, ty: FLY_TARGET.score.y, progress: 0,
-        displayTimer: 35,               // 停留 35 幀後才開始飛
+        displayTimer: TF(TIMING.scoreHold),   // 停留後才開始飛
         colorIdx: (comboCount - 1) % 5
       });
     }
@@ -1096,9 +1381,10 @@ function updatePopping() {
   popWaitTimer++;
 
   // Phase 1 (1~15): 符號縮小消失
-  if (popWaitTimer <= 15) {
+  const popShrinkFrames = TF(TIMING.popShrink);
+  if (popWaitTimer <= popShrinkFrames) {
     winLines.forEach(wl => wl.cells.forEach(({ c, r }) => {
-      board[c][r].scale = Math.max(0, 1 - popWaitTimer / 15);
+      board[c][r].scale = Math.max(0, 1 - popWaitTimer / popShrinkFrames);
     }));
     if (popWaitTimer === 1) spawnPopParticles();
     return;
@@ -1160,7 +1446,7 @@ const MAX_PARTICLES = 500;
 
 // === 消除演繹 一/二/三（美術需求說明 編號11-3，特效強度 弱/中/強）===
 // 以共用爆炸特效蓋過消除（不做逐圖示碎裂拆圖）；與得分框同級連動，共用同一套金額區間判準。
-const POP_TIERS = [
+let POP_TIERS = [
   null,
   { count:  8, speed: [2, 5], size: [4, 8],  life: 30, ring: 0,  flash: 0    }, // 弱
   { count: 14, speed: [3, 7], size: [5, 10], life: 36, ring: 46, flash: 0.25 }, // 中
@@ -1270,7 +1556,7 @@ function applyGravity() {
   }
 }
 
-const FALL_SPEED = 14;
+let FALL_SPEED = 14;
 
 function updateGravity() {
   let settling = false;
@@ -1437,8 +1723,8 @@ function drawBottomSpecials(ctx) {
 }
 
 // 每個特殊格的演繹節奏（幀數）：消除後立即全部可見，依序觸發
-const REVEAL_HOLD_FRAMES2 = 45;  // 觸發前停留（讓玩家看清楚）
-const REVEAL_AFTER_FRAMES = 22;  // 效果發動後緩衝
+let REVEAL_HOLD_FRAMES2 = 45;  // 觸發前停留（讓玩家看清楚）
+let REVEAL_AFTER_FRAMES = 22;  // 效果發動後緩衝
 
 function updateRevealing() {
   if (unifiedRevealSeq.length === 0) {
@@ -1536,8 +1822,8 @@ function drawJPBars(ctx) {
 // === 共用飛行演繹（美術需求說明 編號11-5，特效強度：弱）===
 // 四種收集物（隨機倍數／號角／皇冠／項鍊）共用同一組飛行路徑：拋物線＋拖尾，
 // 僅更換物件圖與起訖點；抵達後之接收演出由各 UI 物件各自負責。
-const FLIGHT_ARC = 90;        // 拋物線最高點的偏移量（px）
-const FLIGHT_TRAIL_MAX = 14;  // 拖尾取樣點數
+let FLIGHT_ARC = 90;        // 拋物線最高點的偏移量（px）
+let FLIGHT_TRAIL_MAX = 14;  // 拖尾取樣點數
 
 // 推進一個飛行物件；回傳 true 表示已抵達終點
 function stepFlight(f, speed) {
@@ -1577,7 +1863,7 @@ function drawFlightTrail(ctx, f, color) {
 
 function updateFlyingMultipliers() {
   flyingMultipliers = flyingMultipliers.filter(fm => {
-    const arrived = stepFlight(fm, 0.025);
+    const arrived = stepFlight(fm, 1 / TF(TIMING.flyMult));
     if (arrived) {
       // 原本的 X1 不算基底：第一個倍數直接設為該值，後續才累加
       multiplier = (multiplier === 1 ? 0 : multiplier) + fm.value;
@@ -1771,7 +2057,7 @@ function updateMultToScoreAnim() {
     // 線性平移：35幀內從0移到-45
     m.scoreShift = -45 * Math.min(1, m.timer / 35);
     const dx = targetX - m.flyX, dy = targetY - m.flyY;
-    if (m.timer >= 35 || (dx*dx + dy*dy) < 25) {
+    if (m.timer >= TF(TIMING.settleFly) || (dx*dx + dy*dy) < 25) {
       m.phase = 'formula';
       m.timer = 0;
       m.flyX = targetX; m.flyY = targetY;
@@ -1782,7 +2068,7 @@ function updateMultToScoreAnim() {
 
   if (m.phase === 'formula') {
     m.scoreShift = -45;
-    if (m.timer >= 62) { m.phase = 'combine'; m.timer = 0; }
+    if (m.timer >= TF(TIMING.settleFormula)) { m.phase = 'combine'; m.timer = 0; }
     return;
   }
 
@@ -2126,7 +2412,7 @@ function startNextJP() {
   if (jpWinQueue.length === 0) return;
   const { label, value, hue } = jpWinQueue.shift();
   totalScore += value;
-  jpWinAnim = { active: true, timer: 300, monsterName: label, value };
+  jpWinAnim = { active: true, timer: TF(TIMING.jpWinHold), monsterName: label, value };
   for (let i = 0; i < 70; i++) {
     const ang = Math.random() * Math.PI * 2, spd = 4 + Math.random() * 8;
     jpWinParticles.push({ x: VIEW_W / 2, y: VIEW_H / 2, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
@@ -2437,7 +2723,7 @@ function grantBossCardJP(cardIdx) {
   const m = monsters.find(b => b.name === def.name);
   const val = m ? m.jackpot : def.fallback;
   totalScore += val;
-  jpWinAnim = { active: true, timer: 300, monsterName: def.label, value: val };
+  jpWinAnim = { active: true, timer: TF(TIMING.jpWinHold), monsterName: def.label, value: val };
   for (let i = 0; i < 70; i++) {
     const ang = Math.random() * Math.PI * 2;
     const spd = 4 + Math.random() * 8;
@@ -2789,7 +3075,7 @@ function drawChestUnlockAnim(ctx) {
 
 function updateFlyingAttacks() {
   flyingAttacks = flyingAttacks.filter(fa => {
-    const arrived = stepFlight(fa, 0.03);
+    const arrived = stepFlight(fa, 1 / TF(TIMING.flyCollect));
     if (arrived) {
       if (fa.isKey) {
         keyCount = Math.min(6, keyCount + 1);
@@ -2806,7 +3092,7 @@ function updateFlyingAttacks() {
           if (m.hp === 0) {
             m.isDead = true;
             if (m.isJP) {
-              jpWinAnim = { active: true, timer: 240, monsterName: m.name, value: m.jackpot };
+              jpWinAnim = { active: true, timer: TF(TIMING.jpWinHold), monsterName: m.name, value: m.jackpot };
               for (let i = 0; i < 50; i++) {
                 const ang = Math.random() * Math.PI * 2;
                 const spd = 4 + Math.random() * 6;
@@ -3056,7 +3342,7 @@ function drawBoard(ctx) {
 
       // 得分演繹期間，未得分圖示壓暗至約 60%（美術需求說明 編號11-1）
       const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING) && winLines.length > 0;
-      const alpha = cell._flash ? 1.0 : (cell.isMatched ? 0.4 : (dimOthers ? 0.6 : 1.0));
+      const alpha = cell._flash ? 1.0 : (cell.isMatched ? 0.4 : (dimOthers ? FX.dimAlpha : 1.0));
       const scale = cell.scale !== undefined ? cell.scale : 1;
 
       if (scale !== 1) {
@@ -3087,7 +3373,7 @@ function drawBoard(ctx) {
 // === 得分框演繹 一/二/三（美術需求說明 編號11-1，特效強度 弱/中/強）===
 // 框的粗細、顏色變幻與發光分 3 級；分級依「單線得分金額區間」，與消除特效同級連動。
 // 形狀語言刻意與預報框分開：得分框＝雙層外框，預報框＝四角刻痕，避免兩者在盤面上混淆
-const WIN_FRAME_TIERS = [
+let WIN_FRAME_TIERS = [
   null,
   { color: '#fde68a', inner: 'rgba(255,255,255,0.55)', lineW: 3, blur: [8, 16],  speed: 220, ring: 0 }, // 弱
   { color: '#fbbf24', inner: 'rgba(255,255,255,0.75)', lineW: 5, blur: [18, 30], speed: 150, ring: 1 }, // 中
@@ -3164,7 +3450,7 @@ function drawWinFrames(ctx) {
 // === 預報框（美術需求說明 編號11-4：預報框 弱／強）===
 // 圖示落定當下即顯示、跟著圖示移動，持續存在直到該格被消除揭曉；常駐無時長、不做彈出演出。
 // 底下藏有預報對象即必然顯示（非機率觸發），顯示即必準，不做落空。
-const FORECAST_STYLE = {
+let FORECAST_STYLE = {
   [FORECAST.WEAK]:   { color: '#93c5fd', rgb: '147,197,253', lineW: 3, blur: [10, 20], speed: 170, fill: 0.07, corner: false }, // 弱框（強度：弱）
   [FORECAST.STRONG]: { color: '#ffd700', rgb: '255,215,0',   lineW: 5, blur: [24, 44], speed: 105, fill: 0.16, corner: true  }, // 強框（強度：中）
 };
@@ -3580,13 +3866,55 @@ function drawCollectRow(ctx, base, count, onImg, offImg, iw, ih) {
   }
 }
 
+
+// 依 TIMING / FX 重算所有衍生的執行期常數（面板調整後即時呼叫）
+let BOUNCE_DECAY = 0.6;
+function applyTuning() {
+  // ── 節奏 ──
+  SPIN_FRAMES = [];
+  for (let c = 0; c < COLS; c++) SPIN_FRAMES.push(TF(TIMING.reelFirstStop) + c * TF(TIMING.reelStopInterval));
+  SPIN_SPEED           = Math.max(1, CELL_SIZE / Math.max(1, TIMING.reelSpeed * 60));
+  FALL_SPEED           = Math.max(1, CELL_SIZE / Math.max(1, TIMING.refillPerCell * 60));
+  AUTO_SPIN_DELAY      = TF(TIMING.autoSpinDelay);
+  WIN_DISPLAY_FRAMES   = TF(TIMING.winDisplay);
+  MULT_HOLD_FRAMES     = TF(TIMING.multHold);
+  UNIFIED_HOLD_FRAMES  = TF(TIMING.revealHold);
+  FIRE_INTERVAL        = TF(TIMING.revealFire);
+  REVEAL_HOLD_FRAMES2  = TF(TIMING.revealPreHold);
+  REVEAL_AFTER_FRAMES  = TF(TIMING.revealAfter);
+  CHEST_UNLOCK_FRAMES  = TF(TIMING.chestUnlock);
+  // 回彈：讓振幅在 landBounce 秒內由 BOUNCE_AMPLITUDE 衰減到 0.5 以下
+  BOUNCE_DECAY = Math.min(0.95, Math.max(0.05, Math.pow(0.5 / BOUNCE_AMPLITUDE, 1 / TF(TIMING.landBounce))));
+
+  // ── 特效 ──
+  FLIGHT_ARC       = FX.flightArc;
+  FLIGHT_TRAIL_MAX = Math.max(2, Math.round(FX.flightTrail));
+
+  POP_TIERS = [
+    null,
+    { count: Math.round(FX.popCount1), speed: [2, 5], size: [4, FX.popSize1], life: 30, ring: 0,          flash: 0 },
+    { count: Math.round(FX.popCount2), speed: [3, 7], size: [5, FX.popSize2], life: 36, ring: FX.popRing2, flash: FX.popFlash2 },
+    { count: Math.round(FX.popCount3), speed: [4, 9], size: [6, FX.popSize3], life: 44, ring: FX.popRing3, flash: FX.popFlash3 },
+  ];
+  WIN_FRAME_TIERS = [
+    null,
+    { color: '#fde68a', inner: 'rgba(255,255,255,0.55)', lineW: FX.winLine1, blur: [FX.winGlow1 * 0.5, FX.winGlow1], speed: FX.winPulse1, ring: 0 },
+    { color: '#fbbf24', inner: 'rgba(255,255,255,0.75)', lineW: FX.winLine2, blur: [FX.winGlow2 * 0.6, FX.winGlow2], speed: FX.winPulse2, ring: 1 },
+    { color: '#f97316', inner: 'rgba(255,240,214,0.95)', lineW: FX.winLine3, blur: [FX.winGlow3 * 0.6, FX.winGlow3], speed: FX.winPulse3, ring: 2 },
+  ];
+  FORECAST_STYLE = {
+    [FORECAST.WEAK]:   { color: '#93c5fd', rgb: '147,197,253', lineW: FX.fcWeakLine,   blur: [FX.fcWeakGlow * 0.5, FX.fcWeakGlow],     speed: FX.fcWeakPulse,   fill: FX.fcWeakFill,   corner: false },
+    [FORECAST.STRONG]: { color: '#ffd700', rgb: '255,215,0',   lineW: FX.fcStrongLine, blur: [FX.fcStrongGlow * 0.55, FX.fcStrongGlow], speed: FX.fcStrongPulse, fill: FX.fcStrongFill, corner: true  },
+  };
+}
+
 // === 左側：倍數欄＋巨劍蒐集欄（美術需求說明 編號12／13）===
 // 巨劍本體的 2D 素材尚未交付，此處先以程式繪出規格結構：
 // 劍柄圓盤＝倍數欄（4 級區間強度＋待觸發蓄勢），劍身 4 個菱形凹槽＝蒐集物進度，
 // 第 3／4 凹槽標示「10」「15」，達成時數字移至前方發光。
 // cx 貼近盤面框左緣（框左緣約 554），圓盤右緣與門檻數字都留在框外
 const SWORD = { cx: 430, discY: 320, discR: 66, bodyTop: 396, bodyBot: 760, halfW: 34 };
-const MULT_LEVELS = [
+let MULT_LEVELS = [
   { ring: '#8a6a44', glow: 0,  text: '#ffe9b0' },  // 未達 LV1
   { ring: '#f6c453', glow: 16, text: '#fff2c4' },  // LV1 10~19
   { ring: '#ff9f43', glow: 26, text: '#ffe0a8' },  // LV2 20~29
@@ -3601,7 +3929,7 @@ function drawSwordPanel(ctx) {
   const hot = collected >= 3;                       // 已達 FREE SPINS 門檻：待觸發蓄勢
   const charged = multiplier > 1;                   // 倍數欄有累積、尚未於局末結算
 
-  const lv = multiplier >= 40 ? 4 : multiplier >= 30 ? 3 : multiplier >= 20 ? 2 : multiplier >= 10 ? 1 : 0;
+  const lv = multiplier >= FX.multLv4 ? 4 : multiplier >= FX.multLv3 ? 3 : multiplier >= FX.multLv2 ? 2 : multiplier >= FX.multLv1 ? 1 : 0;
   const T = MULT_LEVELS[lv];
   const breathe = 0.72 + 0.28 * Math.sin(now / (lv ? 180 : 420));
 
@@ -3894,6 +4222,288 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
+
+// ============================================================
+// === 調校面板：節奏甘特圖 + 特效滑桿 + localStorage 保存 ====
+// ============================================================
+const TUNE_KEY = 'ares_tuning';
+const TUNE_VERSION = 1;
+let tunePanelOpen = false;
+let tuneTab = 'timing';   // 'timing' | 'fx'
+
+function saveTuning() {
+  try {
+    localStorage.setItem(TUNE_KEY, JSON.stringify({
+      version: TUNE_VERSION, timing: TIMING, timeline: TIMING_START, fx: FX
+    }));
+    return true;
+  } catch (e) { return false; }
+}
+function loadTuning() {
+  try {
+    const d = JSON.parse(localStorage.getItem(TUNE_KEY) || 'null');
+    if (!d || d.version !== TUNE_VERSION) { localStorage.removeItem(TUNE_KEY); return; }
+    if (d.timing) for (const k in DEFAULT_TIMING) {
+      const v = d.timing[k], rg = TIMING_RANGE[k] || [0, 5];
+      if (typeof v === 'number' && isFinite(v)) TIMING[k] = Math.min(rg[1], Math.max(rg[0], v));
+    }
+    if (d.fx) for (const k in DEFAULT_FX) {
+      const v = d.fx[k], rg = FX_RANGE[k] || [0, 100];
+      if (typeof v === 'number' && isFinite(v)) FX[k] = Math.min(rg[1], Math.max(rg[0], v));
+    }
+    if (d.timeline) for (const k in DEFAULT_TIMING_START) {
+      const v = d.timeline[k];
+      if (typeof v === 'number' && isFinite(v)) TIMING_START[k] = Math.min(8, Math.max(0, v));
+    }
+  } catch (e) { /* 資料損毀：退回預設 */ }
+  applyTuning();
+}
+
+function TS(key) { return Math.max(0, TIMING_START[key] || 0); }
+
+function setTimingValue(key, raw, min, max) {
+  const p = parseFloat(raw);
+  const next = Math.min(max, Math.max(min, Number.isFinite(p) ? p : 0));
+  TIMING[key] = next;
+  applyTuning();
+  saveTuning();
+  return next;
+}
+function setTimingStartValue(key, raw) {
+  const p = parseFloat(raw);
+  TIMING_START[key] = Math.min(8, Math.max(0, Number.isFinite(p) ? p : 0));
+  saveTuning();
+  return TIMING_START[key];
+}
+function setFxValue(key, raw, min, max) {
+  const p = parseFloat(raw);
+  const next = Math.min(max, Math.max(min, Number.isFinite(p) ? p : 0));
+  FX[key] = next;
+  applyTuning();
+  saveTuning();
+  return next;
+}
+
+const tuneBtn = document.getElementById('tuneBtn');
+const tunePanel = document.getElementById('tunePanel');
+const tuneBody = document.getElementById('tuneBody');
+const tuneStatus = document.getElementById('tuneStatus');
+let tuneStatusTimer = null;
+function setTuneStatus(text, state) {
+  tuneStatus.textContent = text;
+  tuneStatus.className = state || 'ok';
+  clearTimeout(tuneStatusTimer);
+  tuneStatusTimer = setTimeout(function () { tuneStatus.textContent = ''; tuneStatus.className = ''; }, 2600);
+}
+
+// 數值滑桿列（特效強度／門檻／px）
+function buildNumberRow(store, key, label, min, max, step, setter) {
+  const row = document.createElement('div'); row.className = 'tune-row';
+  const lab = document.createElement('label'); lab.textContent = label;
+  const rng = document.createElement('input');
+  rng.type = 'range'; rng.min = min; rng.max = max; rng.step = step; rng.value = store[key];
+  const num = document.createElement('input');
+  num.type = 'number'; num.min = min; num.max = max; num.step = step; num.value = store[key];
+  const apply = function (v, syncNum) {
+    const nv = setter(key, v, min, max);
+    rng.value = nv;
+    if (syncNum !== false) num.value = nv;
+    return nv;
+  };
+  rng.addEventListener('input', function () { apply(rng.value); });
+  num.addEventListener('input', function () {
+    const raw = num.value.trim();
+    if (raw === '' || raw === '-' || raw === '.' || raw.charAt(raw.length - 1) === '.') return;
+    apply(raw, false);
+  });
+  num.addEventListener('change', function () { num.value = apply(num.value, true); });
+  row.appendChild(lab); row.appendChild(rng); row.appendChild(num);
+  return row;
+}
+
+// 甘特圖列：拖曳色條改起點、拖右緣改時長
+function buildGanttRow(key, label, min, max, step, color, timelineMax) {
+  const row = document.createElement('div'); row.className = 'gantt-row';
+  const lab = document.createElement('label'); lab.textContent = label;
+  const track = document.createElement('div'); track.className = 'gantt-track';
+  const bar = document.createElement('div'); bar.className = 'gantt-bar'; bar.style.background = color;
+  const handle = document.createElement('div'); handle.className = 'gantt-handle';
+  const startNum = document.createElement('input');
+  startNum.type = 'number'; startNum.min = '0'; startNum.max = '8'; startNum.step = step; startNum.title = '起點（秒）';
+  const durNum = document.createElement('input');
+  durNum.type = 'number'; durNum.min = min; durNum.max = max; durNum.step = step; durNum.title = '時長（秒）';
+
+  const sync = function () {
+    const start = TS(key), dur = TIMING[key];
+    startNum.value = start; durNum.value = dur;
+    const left = Math.max(0, Math.min(100, start / timelineMax * 100));
+    const width = Math.max(1.5, Math.min(100 - left, dur / timelineMax * 100));
+    bar.style.left = left + '%'; bar.style.width = width + '%';
+    bar.title = label + '：' + start.toFixed(2) + 's ~ ' + (start + dur).toFixed(2) + 's';
+  };
+  const applyStart = function (v) { setTimingStartValue(key, v); sync(); };
+  const applyDur = function (v) { setTimingValue(key, v, min, max); sync(); };
+  startNum.addEventListener('change', function () { applyStart(startNum.value); });
+  durNum.addEventListener('change', function () { applyDur(durNum.value); });
+
+  const beginDrag = function (e, mode) {
+    e.preventDefault();
+    const rect = track.getBoundingClientRect();
+    const startX = e.clientX, baseStart = TS(key), baseDur = TIMING[key];
+    const onMove = function (ev) {
+      const delta = (ev.clientX - startX) / rect.width * timelineMax;
+      const snapped = Math.round(delta / step) * step;
+      if (mode === 'resize') applyDur(baseDur + snapped); else applyStart(baseStart + snapped);
+    };
+    const onUp = function () {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  bar.addEventListener('pointerdown', function (e) { beginDrag(e, 'move'); });
+  handle.addEventListener('pointerdown', function (e) { beginDrag(e, 'resize'); });
+
+  bar.appendChild(handle);
+  track.appendChild(bar);
+  row.appendChild(lab); row.appendChild(track); row.appendChild(startNum); row.appendChild(durNum);
+  sync();
+  return row;
+}
+
+function buildTimingTab() {
+  tuneBody.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '甘特圖：拖曳色條改起點，拖右緣改時長；右側兩欄為起點／時長（秒）。數值即時生效並自動存在瀏覽器。';
+  tuneBody.appendChild(hint);
+
+  TIMING_META.forEach(function (g, gi) {
+    const h = document.createElement('div');
+    h.className = 'tune-group'; h.textContent = g.group;
+    tuneBody.appendChild(h);
+    const box = document.createElement('div'); box.className = 'gantt-editor';
+    let tmax = 1;
+    g.items.forEach(function (it) { tmax = Math.max(tmax, TS(it[0]) + TIMING[it[0]]); });
+    tmax = Math.ceil(tmax * 1.15 * 20) / 20;
+    g.items.forEach(function (it, i) {
+      const key = it[0], label = it[1];
+      const min = it[2] !== undefined ? it[2] : 0;
+      const max = it[3] !== undefined ? it[3] : 5;
+      const step = it[4] !== undefined ? it[4] : 0.05;
+      box.appendChild(buildGanttRow(key, label, min, max, step,
+        TIMING_COLORS[(gi + i) % TIMING_COLORS.length], tmax));
+    });
+    tuneBody.appendChild(box);
+  });
+}
+
+function buildFxTab() {
+  tuneBody.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'tune-hint';
+  hint.textContent = '特效強度：對應「美術需求說明」的分級參數。門檻類（倍數下限／÷押注）決定該演繹採用哪一級。';
+  tuneBody.appendChild(hint);
+  FX_META.forEach(function (g) {
+    const h = document.createElement('div');
+    h.className = 'tune-group'; h.textContent = g.group;
+    tuneBody.appendChild(h);
+    g.items.forEach(function (it) {
+      tuneBody.appendChild(buildNumberRow(FX, it[0], it[1], it[2], it[3], it[4], setFxValue));
+    });
+  });
+}
+
+function refreshTuneBody() {
+  if (tuneTab === 'timing') buildTimingTab(); else buildFxTab();
+}
+
+tuneBtn.addEventListener('click', function () {
+  tunePanelOpen = !tunePanelOpen;
+  tunePanel.classList.toggle('visible', tunePanelOpen);
+  tuneBtn.classList.toggle('active', tunePanelOpen);
+  if (tunePanelOpen) refreshTuneBody();
+});
+
+tunePanel.querySelectorAll('.tune-tab').forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    tuneTab = tab.dataset.tab;
+    tunePanel.querySelectorAll('.tune-tab').forEach(function (t) { t.classList.toggle('active', t === tab); });
+    refreshTuneBody();
+  });
+});
+
+// 拖曳面板
+(function () {
+  const bar = document.getElementById('tuneDragBar');
+  bar.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const sl = tunePanel.offsetLeft, st = tunePanel.offsetTop;
+    tunePanel.style.left = sl + 'px';
+    tunePanel.style.top = st + 'px';
+    tunePanel.style.right = 'auto';
+    const onMove = function (ev) {
+      tunePanel.style.left = (sl + ev.clientX - sx) + 'px';
+      tunePanel.style.top = (st + ev.clientY - sy) + 'px';
+    };
+    const onUp = function () {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+})();
+
+document.getElementById('tuneApplySpin').addEventListener('click', function () {
+  applyTuning();
+  const saved = saveTuning();
+  if (currentState === STATE.IDLE && !isAutoSpinning) {
+    startSpin();
+    setTuneStatus(saved ? '已套用 ✓ 後續 SPIN 皆用這組' : '已套用；瀏覽器未保存', saved ? 'ok' : 'wait');
+  } else {
+    setTuneStatus(saved ? '已套用 ✓ 這局跑完後生效' : '已套用；瀏覽器未保存', 'wait');
+  }
+});
+
+document.getElementById('tuneReset').addEventListener('click', function () {
+  TIMING = Object.assign({}, DEFAULT_TIMING);
+  FX = Object.assign({}, DEFAULT_FX);
+  TIMING_START = Object.assign({}, DEFAULT_TIMING_START);
+  applyTuning();
+  saveTuning();
+  refreshTuneBody();
+  setTuneStatus('已重設為預設值', 'ok');
+});
+
+function showExportFallback(text) {
+  const w = window.open('', '_blank', 'width=560,height=640');
+  if (!w) return;
+  w.document.write('<title>阿瑞斯 調校設定</title><textarea style="width:99%;height:96%;font-family:monospace;font-size:12px">'
+    + text.replace(/</g, '&lt;') + '</textarea>');
+}
+
+document.getElementById('tuneExport').addEventListener('click', function () {
+  const payload = {
+    game: '阿瑞斯 DEMO',
+    version: TUNE_VERSION,
+    timing_seconds: TIMING,
+    timeline_start_seconds: TIMING_START,
+    fx: FX
+  };
+  const text = JSON.stringify(payload, null, 2);
+  const done = function (ok) { setTuneStatus(ok ? '設定已複製到剪貼簿 ✓' : '已開啟複製視窗', ok ? 'ok' : 'wait'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { done(true); })
+      .catch(function () { showExportFallback(text); done(false); });
+  } else { showExportFallback(text); done(false); }
+});
+
+loadTuning();
+refreshTuneBody();
+
 // === 遊戲主迴圈 ===
 let lastTime = 0;
 function gameLoop(ts) {
@@ -3906,6 +4516,7 @@ function gameLoop(ts) {
 
 // === 入口 ===
 (async function main() {
+  applyTuning();
   await loadIcons();
   generateBoard();
   initMonsters();
