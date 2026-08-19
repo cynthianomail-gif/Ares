@@ -713,8 +713,10 @@ let forecastNeedStrong = false;
 // 這樣預報框是隨滾輪一起產生的，滾動當下就跟著圖示顯示，而不是停輪後才補上去。
 function rollSpinMult(c) {
   if (forceSpinType === 'forecast' && (forecastNeedWeak || forecastNeedStrong)) {
-    const remainSteps = Math.floor(colSpinFrames[c] * SPIN_SPEED / CELL_SIZE);
-    if (remainSteps < ROWS) {
+    // 這顆是「上方預備格」，會在下一次捲動才進入盤面，之後每捲動一次下移一列。
+    // 剩餘捲動次數 n：n=0 代表這顆不會進盤面；1~ROWS 會停在 row (n-1)；>ROWS 會被推出去。
+    const remainSteps = Math.floor((colSpinFrames[c] * SPIN_SPEED + colOffsets[c]) / CELL_SIZE);
+    if (remainSteps >= 1 && remainSteps <= ROWS) {
       if (forecastNeedStrong) {
         forecastNeedStrong = false;
         return FORECAST_STRONG_OPTS[Math.floor(Math.random() * FORECAST_STRONG_OPTS.length)];
@@ -724,6 +726,12 @@ function rollSpinMult(c) {
     }
   }
   return rollCellMult();
+}
+
+// 產生一顆滾動中的新圖示（含隱藏倍數）
+function makeSpinCell(c) {
+  return { id: Math.floor(Math.random() * SYMBOLS.length), mult: rollSpinMult(c),
+           yOffset: 0, isMatched: false, scale: 1, _flash: false };
 }
 
 // === 預報框（美術需求說明 編號11-4 / 視覺流程圖 02）===
@@ -870,6 +878,8 @@ let colOffsets = new Array(COLS).fill(0);
 let colStates  = new Array(COLS).fill('idle');
 let colDelays  = new Array(COLS).fill(0);
 let colSpinFrames = new Array(COLS).fill(0);
+// 滾動緩衝：位於可視區「上方一格」的預備圖示，讓滾輪看起來是連續的
+let spinBuffer = new Array(COLS).fill(null);
 let colBounce = new Array(COLS).fill(0);
 
 let popWaitTimer = 0;
@@ -1091,6 +1101,7 @@ function startSpin() {
   for (let c = 0; c < COLS; c++) {
     colOffsets[c] = 0;
     colStates[c] = 'spinning';
+    spinBuffer[c] = makeSpinCell(c);
     colDelays[c] = c * TF(TIMING.reelStartDelay);
     colSpinFrames[c] = SPIN_FRAMES[c];
     colBounce[c] = 0;
@@ -1112,7 +1123,9 @@ function updateSpinning() {
       if (colOffsets[c] >= CELL_SIZE) {
         colOffsets[c] -= CELL_SIZE;
         for (let r = ROWS - 1; r > 0; r--) board[c][r] = { ...board[c][r - 1] };
-        board[c][0] = { id: Math.floor(Math.random() * SYMBOLS.length), mult: rollSpinMult(c), yOffset: 0, isMatched: false, scale: 1, _flash: false };
+        // 上方預備格遞補進盤面，再補一顆新的預備格（滾輪連續、不會出現空缺）
+        board[c][0] = spinBuffer[c] || makeSpinCell(c);
+        spinBuffer[c] = makeSpinCell(c);
       }
       colSpinFrames[c]--;
       if (colSpinFrames[c] <= 0) {
@@ -3346,6 +3359,10 @@ function drawBoard(ctx) {
 
   for (let c = 0; c < COLS; c++) {
     const spinOff = (colStates[c] !== 'idle') ? (colOffsets[c] + colBounce[c]) : 0;
+    // 滾動中：先畫上方的預備格（大半被 clip 裁掉，只露出正在滑入的那一段）
+    if (colStates[c] !== 'idle' && spinBuffer[c] && spinBuffer[c].id !== -1) {
+      drawSymbol(ctx, spinBuffer[c].id, GRID_X + c * CELL_SIZE, GRID_Y - CELL_SIZE + spinOff, CELL_SIZE, 1);
+    }
     for (let r = 0; r < ROWS; r++) {
       const cell = board[c][r];
       if (!cell || cell.id === -1) continue;
@@ -3477,8 +3494,9 @@ function drawForecastFrames(ctx) {
 
   for (let c = 0; c < COLS; c++) {
     const spinOff = (colStates[c] !== 'idle') ? (colOffsets[c] + colBounce[c]) : 0;
-    for (let r = 0; r < ROWS; r++) {
-      const cell = board[c][r];
+    for (let r = -1; r < ROWS; r++) {
+      // r = -1 是滾動中的上方預備格，讓預報框跟著圖示一起滑入
+      const cell = (r < 0) ? (colStates[c] !== 'idle' ? spinBuffer[c] : null) : board[c][r];
       if (!cell || cell.id === -1) continue;
       const lv = forecastLevelByMult(cell.mult);
       if (lv === FORECAST.NONE) continue;
