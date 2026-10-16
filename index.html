@@ -323,7 +323,8 @@
         #rvBar {
             position: absolute;
             top: 70px; right: 15px;
-            width: 250px;
+            width: 330px;
+            max-height: 750px; overflow-y: auto;
             background: rgba(8, 15, 30, 0.92);
             border: 2px solid #334155;
             border-radius: 12px;
@@ -343,7 +344,10 @@
         }
         #rvBar button:hover { border-color: #38bdf8; }
         #rvBar button.active { background: rgba(250,204,21,0.18); border-color: #fbbf24; color: #fbbf24; }
-        #rvDesc { color: #cbd5e1; font-size: 12px; line-height: 1.5; margin: 2px 2px 0; }
+        #rvBar button.rv-main { font-size: 15px; padding: 8px 10px; }
+        #rvOthers { margin: 2px 0 6px; }
+        #rvOthers summary { color: #94a3b8; font-size: 12px; cursor: pointer; margin: 0 2px 5px; }
+        #rvDesc { color: #cbd5e1; font-size: 13px; line-height: 1.55; margin: 2px 2px 0; white-space: pre-line; }
         #rvNote { color: #fbbf24; font-size: 12px; margin: 4px 2px 0; min-height: 16px; }
     </style>
 </head>
@@ -356,13 +360,17 @@
     <canvas id="gameCanvas" width="2000" height="900"></canvas>
 
     <div id="rvBar">
-        <div class="rv-title">揭曉方式（四種比較）</div>
-        <button data-mode="0">原版</button>
-        <button data-mode="1">① 空格彈出</button>
-        <button data-mode="2">② 圖示後＋煙霧</button>
-        <button data-mode="3">③ 煙霧統一開</button>
-        <button data-mode="4">④ 建議版（逐輪開）</button>
-        <button data-mode="5">⑤ 逐輪爆（爆＝揭曉）</button>
+        <div class="rv-title">揭曉方式</div>
+        <button data-mode="6" class="rv-main">⑥ 推薦版（給 RD／特效）</button>
+        <details id="rvOthers">
+            <summary>其他比較版</summary>
+            <button data-mode="0">原版</button>
+            <button data-mode="1">① 空格彈出</button>
+            <button data-mode="2">② 圖示後＋煙霧</button>
+            <button data-mode="3">③ 煙霧統一開</button>
+            <button data-mode="4">④ 逐輪開</button>
+            <button data-mode="5">⑤ 逐輪爆（爆＝揭曉）</button>
+        </details>
         <div id="rvDesc"></div>
         <div id="rvNote"></div>
     </div>
@@ -613,7 +621,7 @@ const DEFAULT_FX = {
   popoutHeight:  95,     // 收集物彈出高度（px）
   popoutDur:      0.70,  // 收集物彈出到落定時長（秒）
   // 揭曉方式四種比較（右上角切換，下一局生效）：0 原版／1 空格彈出／2 圖示後＋煙霧／3 煙霧統一開／4 建議版
-  rvMode:         1,
+  rvMode:         6,     // 預設＝⑥ 推薦版
   fcRate:         0.60,  // 底下藏有預報對象時，顯示預報框的機率（企劃書 60%）
   heatKey:        2,     // 手甲收到幾個進入「緊張」（差 1 個就開 FREE SPINS）
   heatJP:         3,     // 皇冠／羽扇收到幾個進入「緊張」（差 1 個就宙斯／赫拉）
@@ -635,6 +643,19 @@ const DEFAULT_FX = {
   m5BigHold:      0.90,  // 關鍵那顆（第 3／4 個手甲、第 4 個皇冠羽扇）的特別演出停留
   m5Glow:         0.35,  // 爆之前發光（預報）時間
   m5FcMode:       1,     // 預報：0＝落定就在圖示上掛框（同②）／1＝爆之前才發光（同④）
+  // ⑥ 推薦版（給 RD／特效）：RD 現版「框→逐輪爆→煙→物件冒出」＋以下調整
+  m6Col:          0.15,  // 每輪爆破間隔（RD 現版約 0.1）
+  m6ColHot:       0.50,  // 緊張時每輪爆破間隔（手甲 2 個／皇冠羽扇 3 個，開出關鍵那顆後恢復）
+  m6SmokeIn:      0.10,  // 殘煙進場
+  m6SmokeHold:    0.20,  // 殘煙停留（平常）——物件在煙裡若隱若現
+  m6SmokeHoldHot: 0.50,  // 殘煙停留（緊張）
+  m6SmokeOut:     0.40,  // 殘煙散開（流程不等它散完）
+  m6Emerge:       0.20,  // 煙開始散時，物件冒出到完整
+  m6Ghost:        0.35,  // 煙停留時物件的若隱若現濃度
+  m6FcDelay:      0.20,  // 得分框亮起後多久疊上預報框
+  m6FcIn:         0.20,  // 預報框進場（閃一下）時長
+  m6BigHold:      0.80,  // 關鍵那顆強化揭曉停留
+  m6HotCol:       0,     // 緊張時整輪亮起的緩停框：0 不用（只抖動＋格子亮）／1 用
 };
 
 // 面板顯示：分組、中文名、[min, max, step]（省略＝節奏 0~5 秒 / 步進 0.05）
@@ -700,6 +721,13 @@ const FX_META = [
     ['m5Shrink','圖示爆掉時長(秒)', 0.05, 1, 0.01], ['m5Smoke','煙霧散開(秒)', 0.1, 2, 0.05],
     ['m5Pop','物件冒出時長(秒)', 0.1, 1, 0.05], ['m5BigHold','關鍵那顆特別演出(秒)', 0, 3, 0.05],
     ['m5Glow','爆之前發光(秒)', 0, 1.5, 0.05], ['m5FcMode','預報 0落定掛框/1爆前發光', 0, 1, 1]] },
+  { group: '⑥ 推薦版（給 RD／特效）', items: [
+    ['m6Col','每輪爆破間隔(秒)', 0, 1, 0.01], ['m6ColHot','緊張時每輪間隔(秒)', 0, 2, 0.05],
+    ['m6SmokeIn','殘煙進場(秒)', 0, 0.5, 0.01], ['m6SmokeHold','殘煙停留(秒)', 0, 1.5, 0.05],
+    ['m6SmokeHoldHot','緊張時殘煙停留(秒)', 0, 2, 0.05], ['m6SmokeOut','殘煙散開(秒)', 0.05, 1.5, 0.05],
+    ['m6Emerge','物件冒出(秒)', 0.05, 1, 0.05], ['m6Ghost','煙中若隱若現濃度', 0, 1, 0.05],
+    ['m6FcDelay','得分框後多久疊預報框(秒)', 0, 1.5, 0.05], ['m6FcIn','預報框進場(秒)', 0, 1, 0.05],
+    ['m6BigHold','關鍵那顆強化揭曉(秒)', 0, 3, 0.05], ['m6HotCol','緊張時整輪緩停框 0/1', 0, 1, 1]] },
 ];
 
 const TIMING_RANGE = {};
@@ -862,7 +890,8 @@ function forecastLevelByMult(mult) {
 // ============================================================
 //   ⑤ 逐輪爆：不分「爆」和「開」，第 1~5 輪一輪一輪爆，每一爆帶煙、有東西直接從煙裡冒出。
 //      手甲差 1 個就開 FREE SPINS（或皇冠／羽扇差 1 個就 JP）時，每一爆之間放慢；開出關鍵那顆加特別演出，之後恢復正常速度。
-const RV_MODE_NAMES = ['原版', '① 空格彈出', '② 圖示後＋煙霧', '③ 煙霧統一開', '④ 建議版', '⑤ 逐輪爆'];
+//   ⑥ 推薦版（給 RD／特效）：⑤ 的節奏＋預報框改在得分框亮起時才疊上、爆破＋殘煙兩層（流程不等煙）、關鍵那顆強化揭曉（換色、不加大字）。
+const RV_MODE_NAMES = ['原版', '① 空格彈出', '② 圖示後＋煙霧', '③ 煙霧統一開', '④ 建議版', '⑤ 逐輪爆', '⑥ 推薦版'];
 let rvShakeT = 0;                 // ⑤ 關鍵那顆：畫面震動剩餘幀數
 let rvBigLabel = null;            // ⑤ 關鍵那顆：盤面中央大字 { text, t, life }
 let rvActive = 0;                 // 本局採用的揭曉方式（SPIN 當下鎖定，切換後下一局生效）
@@ -872,7 +901,8 @@ let teaseStage = 0;               // 手甲聽牌強開：1 等第一次消除�
 let refillGen = 0;                // 補盤批次編號（判斷哪些格子是這次新補的）
 let HR = null;                    // 本次消除的揭曉狀態
 
-function rvMode() { return Math.max(0, Math.min(5, Math.round(FX.rvMode || 0))); }
+function rvMode() { return Math.max(0, Math.min(6, Math.round(FX.rvMode || 0))); }
+function isM56(m) { return m === 5 || m === 6; }   // ⑤⑥ 共用逐輪爆流程
 
 // 倍數大小：沿用原權重表（去掉「不出現」那列）的相對比例
 function rollMultValue() {
@@ -981,7 +1011,7 @@ function landingOrdinals() {
   const base = { key: collectedOf('key'), crown: collectedOf('crown'), necklace: collectedOf('necklace') };
   // ⑤ 還沒爆的格子仍在盤面上，交給下面的盤面迴圈算，這裡不重複算
   if (HR) HR.holes.forEach(h => {
-    if (HR.mode === 5 && !h.cleared) return;
+    if (isM56(HR.mode) && !h.cleared) return;
     if (h.item && !h.fired && base[h.item.type] !== undefined) base[h.item.type]++;
   });
   const map = new Map();
@@ -1680,7 +1710,7 @@ function drawScoreTexts(ctx) {
 // === Task 8：消除 + 下落 ===
 function updatePopping() {
   // ⑤ 逐輪爆：不做全部一起縮小，直接交給逐輪爆破流程
-  if (rvActive === 5) { popWaitTimer = 0; startHoleReveal(); return; }
+  if (isM56(rvActive)) { popWaitTimer = 0; startHoleReveal(); return; }
   popWaitTimer++;
 
   // Phase 1 (1~15): 符號縮小消失
@@ -2174,7 +2204,7 @@ const RV_COVER_FORM = 0.15;   // ③④ 煙霧蓋上所需時間（秒）
 function startHoleReveal() {
   const seen = new Set();
   const holes = [];
-  const m5 = rvActive === 5;
+  const m5 = isM56(rvActive);
   // 每格的爆破強度：取所屬得分線中最高的一級（同原本消除演繹）
   const tierOf = new Map();
   winLines.forEach(wl => wl.cells.forEach(({ c, r }) => {
@@ -2223,7 +2253,7 @@ function startHoleReveal() {
   if (HR.mode === 4) {
     if (HR.cols.length) rvPlanColumn(); else rvToShow(0);
   }
-  if (HR.mode === 5) {
+  if (isM56(HR.mode)) {
     if (HR.cols.length) rvPlanColumn5(); else rvToShow(0);
   }
   currentState = STATE.HOLE_REVEAL;
@@ -2234,14 +2264,19 @@ function rvPlanColumn5() {
   if (HR.colIdx >= HR.cols.length) { HR.colCur = -1; return; }
   const c = HR.cols[HR.colIdx];
   const hot = HR.colIdx > 0 && isHot5(HR.add);
-  let wait = HR.colIdx === 0 ? 1 : TF(hot ? FX.m5ColHot : FX.m5Col);
+  const m6 = HR.mode === 6;
+  let wait = HR.colIdx === 0 ? 1 : TF(m6 ? (hot ? FX.m6ColHot : FX.m6Col) : (hot ? FX.m5ColHot : FX.m5Col));
   if (HR.bigWait) { wait = Math.max(wait, HR.bigWait); HR.bigWait = 0; }
-  if (FX.m5FcMode >= 1 && HR.holes.some(h => h.c === c && h.fc !== FORECAST.NONE)) wait = Math.max(wait, TF(FX.m5Glow));
+  if (!m6 && FX.m5FcMode >= 1 && HR.holes.some(h => h.c === c && h.fc !== FORECAST.NONE)) wait = Math.max(wait, TF(FX.m5Glow));
   Object.assign(HR, { colCur: c, colT: 0, colWait: wait, colHot: hot });
 }
 
 // ⑤：一輪爆開——爆破粒子＋煙，物件跟著從煙裡冒出；開出關鍵那顆加特別演出
+const RV_BIG_RGB = { key: '255,96,60', crown: '255,210,74', necklace: '196,140,255' };   // ⑥ 關鍵那顆換色：手甲紅／皇冠金／羽扇紫
 function rvExplodeColumn5(c) {
+  const m6 = HR.mode === 6;
+  // ⑥ 殘煙停留：爆開當下是否緊張（同一次消除前面已開出的也算）決定停多久
+  const hold6 = TF(isHot5(HR.add) ? FX.m6SmokeHoldHot : FX.m6SmokeHold);
   HR.holes.forEach(h => {
     if (h.c !== c) return;
     h.openAt = HR.t;
@@ -2249,6 +2284,17 @@ function rvExplodeColumn5(c) {
     spawnCellPop(px, py, h.tier, h.color);
     if (h.item && HR.add[h.item.type] !== undefined) HR.add[h.item.type]++;
     const big = rvBigText(h.item, h.ord);
+    if (m6) {
+      h.hold = hold6;
+      if (big) {
+        // ⑥：先在煙裡若隱若現，煙散開的那一刻才爆出強化揭曉（rvUpdateBig6 觸發震動與衝擊環）
+        h.big = true;
+        h.bigRGB = RV_BIG_RGB[h.item.type] || RV_BIG_RGB.crown;
+        h.bigAt = HR.t + TF(FX.m6SmokeIn) + h.hold;
+        HR.bigWait = TF(FX.m6SmokeIn) + h.hold + TF(FX.m6BigHold);
+      }
+      return;
+    }
     if (big) {
       h.big = true;
       HR.bigWait = TF(FX.m5BigHold);
@@ -2256,6 +2302,23 @@ function rvExplodeColumn5(c) {
       rvBigLabel = { text: big, t: 0, life: TF(FX.m5BigHold) + TF(0.6) };
       particles.push({ type: 'ring', x: px, y: py, vx: 0, vy: 0, life: 34, maxLife: 34, color: '#ffd24a', size: 10, maxSize: 190, flash: 0.7 });
       particles.push({ type: 'ring', x: px, y: py, vx: 0, vy: 0, life: 48, maxLife: 48, color: '#ff9f1a', size: 10, maxSize: 280, flash: 0 });
+    }
+  });
+}
+
+// ⑥：關鍵那顆在煙散開的那一刻觸發畫面震動＋衝擊環（換色）
+function rvUpdateBig6() {
+  HR.holes.forEach(h => {
+    if (!h.big || h.bigFired || HR.t < h.bigAt) return;
+    h.bigFired = true;
+    const px = GRID_X + h.c * CELL_SIZE + CELL_SIZE / 2, py = GRID_Y + h.r * CELL_SIZE + CELL_SIZE / 2;
+    const col = `rgb(${h.bigRGB})`;
+    rvShakeT = TF(0.40);
+    particles.push({ type: 'ring', x: px, y: py, vx: 0, vy: 0, life: 32, maxLife: 32, color: col, size: 10, maxSize: 190, flash: 0.7 });
+    particles.push({ type: 'ring', x: px, y: py, vx: 0, vy: 0, life: 46, maxLife: 46, color: col, size: 10, maxSize: 270, flash: 0 });
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2, sp = 4 + Math.random() * 6;
+      particles.push({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 40, maxLife: 40, color: col, size: 4 + Math.random() * 5 });
     }
   });
 }
@@ -2313,6 +2376,7 @@ function updateHoleReveal() {
   if (!HR) { applyGravity(); currentState = STATE.GRAVITY; return; }
   HR.t++;
   const m = HR.mode;
+  if (m === 6) rvUpdateBig6();
 
   if (HR.phase === 'reveal') {
     if (m === 1) {
@@ -2321,7 +2385,7 @@ function updateHoleReveal() {
       if (HR.t >= HR.smokeDur) { rvOpenAll(); rvToShow(0); }
     } else if (m === 3) {
       if (HR.t >= TF(RV_COVER_FORM) + TF(HR.hot ? FX.m3HoldHot : FX.m3Hold)) { rvOpenAll(); rvToShow(TF(FX.m3Open)); }
-    } else if (m === 5) {
+    } else if (isM56(m)) {
       rvUpdateShrink5();
       // 緊張：下一輪要爆的圖示抖動
       HR.holes.forEach(h => {
@@ -2333,6 +2397,7 @@ function updateHoleReveal() {
         cell._jy = sh ? Math.cos(HR.t * 2.3 + h.seed) * 2 : 0;
       });
       if (HR.colCur >= 0 && ++HR.colT >= HR.colWait) {
+        HR.lastExplodeT = HR.t;
         rvExplodeColumn5(HR.colCur);
         HR.colIdx++;
         rvPlanColumn5();
@@ -2341,7 +2406,16 @@ function updateHoleReveal() {
       if (HR.colIdx >= HR.cols.length && HR.holes.every(h => h.cleared)) {
         const extra = HR.bigWait || 0;
         HR.bigWait = 0;
-        rvToShow(HR.hasItem ? Math.max(TF(FX.m5Pop), extra) : 0);
+        let need = Math.max(TF(FX.m5Pop), extra);
+        if (m === 6) {
+          // ⑥：等最後一個物件從煙裡冒出來（煙本身不等，繼續散）；關鍵那顆等強化揭曉演完
+          need = 0;
+          HR.holes.forEach(h => {
+            if (h.item) need = Math.max(need, h.openAt + TF(FX.m6SmokeIn) + (h.hold || 0) + TF(FX.m6Emerge) - HR.t);
+          });
+          if (extra) need = Math.max(need, extra - (HR.t - HR.lastExplodeT));
+        }
+        rvToShow(HR.hasItem ? need : 0);
       }
     } else {
       HR.colT++;
@@ -2513,18 +2587,18 @@ function drawRvGlow(ctx, x, y, lv, g) {
 }
 
 // ⑤ 關鍵那顆的金色爆光：中心強光＋旋轉光芒（k＝特別演出進度 0~1）
-function drawRvBigBurst(ctx, cx, cy, k) {
+function drawRvBigBurst(ctx, cx, cy, k, rgb) {
   const now = Date.now();
   const a = k < 0.8 ? 1 : Math.max(0, (1 - k) / 0.2);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const rg = ctx.createRadialGradient(cx, cy, 6, cx, cy, 175);
-  rg.addColorStop(0,   `rgba(255,224,130,${0.9 * a})`);
-  rg.addColorStop(0.4, `rgba(255,170,40,${0.45 * a})`);
-  rg.addColorStop(1,   'rgba(255,140,0,0)');
+  rg.addColorStop(0,   rgb ? `rgba(255,245,220,${0.9 * a})` : `rgba(255,224,130,${0.9 * a})`);
+  rg.addColorStop(0.4, `rgba(${rgb || '255,170,40'},${0.5 * a})`);
+  rg.addColorStop(1,   `rgba(${rgb || '255,140,0'},0)`);
   ctx.fillStyle = rg;
   ctx.fillRect(cx - 180, cy - 180, 360, 360);
-  ctx.strokeStyle = `rgba(255,215,90,${0.7 * a})`;
+  ctx.strokeStyle = `rgba(${rgb || '255,215,90'},${0.7 * a})`;
   ctx.lineWidth = 6;
   for (let i = 0; i < 12; i++) {
     const ang = now / 500 + i * Math.PI / 6;
@@ -2588,6 +2662,60 @@ function drawHoleReveal(ctx) {
       ctx.beginPath();
       ctx.roundRect(x + 6, y + 6, CELL_SIZE - 12, CELL_SIZE - 12, 12);
       ctx.fill();
+    }
+
+    if (m === 6) {
+      if (since < 0) {
+        // 還沒爆：預報框（得分框亮起時就已疊上）；緊張時下一輪要爆的格子抖動＋亮
+        const cell = board[h.c][h.r];
+        const jx = cell ? (cell._jx || 0) : 0, jy = cell ? (cell._jy || 0) : 0;
+        if (HR.colHot && h.c === HR.colCur) {
+          const p = 0.5 + 0.5 * Math.sin(now / 90 + h.seed);
+          ctx.save();
+          ctx.strokeStyle = '#ff7a3d';
+          ctx.shadowColor = '#ff7a3d';
+          ctx.shadowBlur = 14 + 18 * p;
+          ctx.globalAlpha = 0.55 + 0.45 * p;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.roundRect(x + 3 + jx, y + 3 + jy, CELL_SIZE - 6, CELL_SIZE - 6, 12);
+          ctx.stroke();
+          ctx.restore();
+        }
+        if (h.fc) drawForecast6(ctx, x + jx, y + jy, h.fc, 1);
+      } else {
+        // 爆了：殘煙 進場→停留（物件若隱若現）→散開（物件冒出）；流程不等煙散完
+        const tIn = TF(FX.m6SmokeIn), outAt = tIn + (h.hold || 0);
+        const tOut = Math.max(1, TF(FX.m6SmokeOut)), tEm = Math.max(1, TF(FX.m6Emerge));
+        const dens = since < tIn ? since / Math.max(1, tIn) : (since < outAt ? 1 : Math.max(0, 1 - (since - outAt) / tOut));
+        if (showItem) {
+          if (since < outAt) {
+            const flick = 0.65 + 0.35 * Math.sin(now / 85 + h.seed * 3);
+            drawRvItem(ctx, h.item, cx, cy, 0.9, FX.m6Ghost * flick * Math.min(1, since / Math.max(1, tIn)));
+          } else {
+            const k = Math.min(1, (since - outAt) / tEm);
+            if (h.big) {
+              const bk = Math.min(1, (since - outAt) / Math.max(1, TF(FX.m6BigHold)));
+              const s = bk < 0.25 ? 0.9 + 0.7 * (bk / 0.25) : 1.6 - 0.6 * Math.min(1, (bk - 0.25) / 0.5);
+              bigs.push({ h, cx, cy, s, bk, a: 1, rgb: h.bigRGB });
+            } else {
+              drawRvItem(ctx, h.item, cx, cy, 0.85 + 0.15 * rvEaseOutBack(k), FX.m6Ghost + (1 - FX.m6Ghost) * k);
+            }
+          }
+        }
+        drawSmokeCloud(ctx, cx, cy, dens * 0.95, h.seed, since < outAt ? 0.8 : 0.8 + 1.0 * Math.min(1, (since - outAt) / tOut));
+        if (since < 8) {
+          ctx.save();
+          ctx.globalAlpha = (8 - since) / 8 * 0.5;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 30 + since * 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        if (h.fc) drawForecast6(ctx, x, y, h.fc, 1, Math.max(0, 1 - since / 12));
+      }
+      return;
     }
 
     if (m === 5) {
@@ -2709,7 +2837,7 @@ function drawHoleReveal(ctx) {
   });
 
   // ④⑤ 緩停框：緊張時，正在等待打開／爆開的那一輪整條亮起（同停輪的緩停）
-  if ((m === 4 || m === 5) && HR.phase === 'reveal' && HR.colHot && HR.colCur >= 0) {
+  if ((m === 4 || m === 5 || (m === 6 && FX.m6HotCol >= 1)) && HR.phase === 'reveal' && HR.colHot && HR.colCur >= 0) {
     const x = GRID_X + HR.colCur * CELL_SIZE;
     const p = 0.5 + 0.5 * Math.sin(now / 90);
     ctx.save();
@@ -2732,7 +2860,7 @@ function drawHoleReveal(ctx) {
 
   // ⑤ 關鍵那顆：金色爆光＋放大的物件，不受盤面裁切
   bigs.forEach(b => {
-    drawRvBigBurst(ctx, b.cx, b.cy, b.bk);
+    drawRvBigBurst(ctx, b.cx, b.cy, b.bk, b.rgb);
     drawRvItem(ctx, b.h.item, b.cx, b.cy, b.s, b.a);
   });
 }
@@ -4311,7 +4439,7 @@ function drawBoard(ctx) {
       const y = GRID_Y + r * CELL_SIZE + (cell.yOffset || 0) + spinOff + (cell._jy || 0);
 
       // 得分演繹期間，未得分圖示壓暗至約 60%（美術需求說明 編號11-1）；⑤ 逐輪爆期間同樣壓暗，等著爆的格子維持亮
-      const m5Popping = currentState === STATE.HOLE_REVEAL && HR && HR.mode === 5 && HR.phase === 'reveal';
+      const m5Popping = currentState === STATE.HOLE_REVEAL && HR && isM56(HR.mode) && HR.phase === 'reveal';
       const dimOthers = (currentState === STATE.SHOWING_WIN || currentState === STATE.POPPING || m5Popping) && winLines.length > 0;
       const alpha = cell._flash ? 1.0 : (cell._pend && m5Popping ? 1.0 : (cell.isMatched ? 0.4 : (dimOthers ? FX.dimAlpha : 1.0)));
       const scale = cell.scale !== undefined ? cell.scale : 1;
@@ -4352,7 +4480,7 @@ let WIN_FRAME_TIERS = [
 ];
 
 function drawWinFrames(ctx) {
-  const m5Popping = currentState === STATE.HOLE_REVEAL && HR && HR.mode === 5 && HR.phase === 'reveal';
+  const m5Popping = currentState === STATE.HOLE_REVEAL && HR && isM56(HR.mode) && HR.phase === 'reveal';
   if (currentState !== STATE.SHOWING_WIN && currentState !== STATE.POPPING && !m5Popping) return;
   if (winLines.length === 0) return;
 
@@ -4458,6 +4586,60 @@ function drawForecastFrameAt(ctx, x, y, lv, alpha) {
     ctx.moveTo(x1 - L, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 - L);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+// ⑥ 預報框：疊在得分框裡面一圈（框中框），k＝進場進度（放大縮回＋閃白），fade＝淡出
+function drawForecast6(ctx, x, y, lv, k, fade) {
+  const a = fade === undefined ? 1 : fade;
+  if (a <= 0.01) return;
+  const cx = x + CELL_SIZE / 2, cy = y + CELL_SIZE / 2;
+  const s = 0.86 * (k >= 1 ? 1 : 1.3 - 0.3 * k);
+  ctx.save();
+  ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy);
+  drawForecastFrameAt(ctx, x, y, lv, a * Math.min(1, k * 1.5));
+  ctx.restore();
+  if (k < 1) {
+    ctx.save();
+    ctx.globalAlpha = (1 - k) * 0.55 * a;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.roundRect(x + 10, y + 10, CELL_SIZE - 20, CELL_SIZE - 20, 10);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ⑥：得分框亮起後 m6FcDelay 秒，在「這次會被消除的格子」疊上預報框（60%、弱／強；不在落定時出現）
+function drawWinForecast6(ctx) {
+  if (rvActive !== 6 || currentState !== STATE.SHOWING_WIN || !winLines.length) return;
+  const elapsed = WIN_DISPLAY_FRAMES - popWaitTimer;
+  const t0 = TF(FX.m6FcDelay);
+  if (elapsed < t0) return;
+  const k = Math.min(1, (elapsed - t0) / Math.max(1, TF(FX.m6FcIn)));
+  const seen = new Set(), cells = [];
+  winLines.forEach(wl => wl.cells.forEach(({ c, r }) => {
+    const key = c * 10 + r;
+    if (!seen.has(key)) { seen.add(key); cells.push({ c, r }); }
+  }));
+  cells.sort((a, b) => a.c !== b.c ? a.c - b.c : a.r - b.r);
+  // 第幾顆的算法與 startHoleReveal 一致（依揭曉順序，含沒掛框的）
+  const run = { key: collectedOf('key'), crown: collectedOf('crown'), necklace: collectedOf('necklace') };
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(GRID_X, GRID_Y, GRID_W, GRID_H);
+  ctx.clip();
+  cells.forEach(({ c, r }) => {
+    const cell = board[c][r];
+    if (!cell || cell.id === -1) return;
+    const it = hiddenItemOf(cell);
+    if (!it || (it.type === 'key' && inFG)) return;
+    let ord = 0;
+    if (run[it.type] !== undefined) { run[it.type]++; if (run[it.type] > 4) return; ord = run[it.type]; }
+    if (!cell.fcShow) return;
+    const lv = fcLevelOfItem(it, ord);
+    if (lv) drawForecast6(ctx, GRID_X + c * CELL_SIZE, GRID_Y + r * CELL_SIZE + (cell.yOffset || 0), lv, k);
+  });
   ctx.restore();
 }
 
@@ -5145,6 +5327,7 @@ function draw() {
   drawReelBase(ctx);
   drawBoard(ctx);
   drawForecastFrames(ctx);   // 預報框（弱／強）：落定即顯示，壓在得分框之下
+  drawWinForecast6(ctx);     // ⑥ 推薦版：得分框亮起後才疊上的預報框（畫在得分框內一圈，得分框壓在外圈）
   drawWinFrames(ctx);        // 得分框（三級強度）
   drawReelFrame(ctx);        // 盤面框蓋住盤面邊緣接縫
   drawRevealOverlay(ctx);
@@ -5317,6 +5500,7 @@ function loadTuning() {
       const v = d.fx[k], rg = FX_RANGE[k] || [0, 100];
       if (typeof v === 'number' && isFinite(v)) FX[k] = Math.min(rg[1], Math.max(rg[0], v));
     }
+    if (d.fx && d.fx.m6Col === undefined) FX.rvMode = 6;   // ⑥ 推薦版加入前的存檔：第一次打開直接看推薦版
     if (d.timeline) for (const k in DEFAULT_TIMING_START) {
       const v = d.timeline[k];
       if (typeof v === 'number' && isFinite(v)) TIMING_START[k] = Math.min(8, Math.max(0, v));
@@ -5580,11 +5764,18 @@ const RV_DESC = [
   '爆掉後每個洞蓋一層煙，停一下後全部同時打開，沒東西就補盤。預報框畫在煙上。緊張時停更久、煙會抖。',
   '煙蓋住後像停輪一樣第 1~5 輪依序打開。收集到差 1 個時，後面幾輪慢開＋緩停框（同一次消除開出的也算）。開之前煙裡發光＝預報。',
   '不分爆和開：第 1~5 輪一輪一輪爆，每一爆帶煙、有東西直接從煙裡冒出。手甲 2 個時每一爆之間放慢＋緩停框，開出第 3 個加特別演出（爆光、震動、大字），之後恢復正常速度。爆之前發光＝預報。',
+  '以 RD 現版（框 → 逐輪爆 → 煙 → 物件冒出）為底，調整：\n' +
+  '① 預報框：落定時不出現。得分框亮起 0.2 秒後，才疊在「這次會被消除的格子」上（60%、弱／強），進場閃一下，疊在得分框內一圈。\n' +
+  '② 爆：第 1~5 輪依序爆，平常每輪間隔 0.15 秒。手甲 2 個（或皇冠／羽扇 3 個）時每輪 0.5 秒，下一輪要爆的格子抖動＋亮；開出關鍵那顆後恢復。\n' +
+  '③ 爆破＋殘煙分兩層：殘煙 進場 0.1／停留 0.2（緊張 0.5）／散開 0.4 秒。停留時物件在煙裡若隱若現，煙開始散時冒出。流程不等煙散完。\n' +
+  '④ 關鍵那顆（第 3／4 個手甲、第 4 個皇冠／羽扇）：煙散開時放大＋光芒＋衝擊環（手甲紅／皇冠金／羽扇紫）＋畫面震動，停 0.8 秒。\n' +
+  '試看：左下強開「🗡 聽牌→中(第3輪)」。秒數都在 🔧 調校面板 → 特效 →「⑥ 推薦版」。',
 ];
 function updateRvBar(note) {
   const m = rvMode();
   document.querySelectorAll('#rvBar button[data-mode]').forEach(b => b.classList.toggle('active', +b.dataset.mode === m));
   document.getElementById('rvDesc').textContent = RV_DESC[m];
+  if (m !== 6) document.getElementById('rvOthers').open = true;   // 選的是比較版時展開清單
   document.getElementById('rvNote').textContent = note || '';
 }
 document.querySelectorAll('#rvBar button[data-mode]').forEach(b => b.addEventListener('click', () => {
