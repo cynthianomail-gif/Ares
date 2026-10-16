@@ -319,6 +319,32 @@
             transition: all 0.2s;
         }
         #infoPanelClose:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+        /* 揭曉方式四種比較：右上角切換列 */
+        #rvBar {
+            position: absolute;
+            top: 70px; right: 15px;
+            width: 250px;
+            background: rgba(8, 15, 30, 0.92);
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 8px;
+            z-index: 120;
+            color: #e2e8f0;
+            font-size: 13px;
+        }
+        #rvBar .rv-title { color: #94a3b8; font-size: 12px; margin: 0 2px 6px; }
+        #rvBar button {
+            display: block; width: 100%;
+            margin: 0 0 5px; padding: 6px 8px;
+            background: #1e293b; color: #e2e8f0;
+            border: 1px solid #475569; border-radius: 7px;
+            font-size: 14px; font-weight: bold; text-align: left;
+            cursor: pointer;
+        }
+        #rvBar button:hover { border-color: #38bdf8; }
+        #rvBar button.active { background: rgba(250,204,21,0.18); border-color: #fbbf24; color: #fbbf24; }
+        #rvDesc { color: #cbd5e1; font-size: 12px; line-height: 1.5; margin: 2px 2px 0; }
+        #rvNote { color: #fbbf24; font-size: 12px; margin: 4px 2px 0; min-height: 16px; }
     </style>
 </head>
 <body>
@@ -328,6 +354,17 @@
     <button id="statsBtn" class="active" title="測試面板">📊</button>
     <button id="tuneBtn" title="調校面板（節奏／特效）">🔧</button>
     <canvas id="gameCanvas" width="2000" height="900"></canvas>
+
+    <div id="rvBar">
+        <div class="rv-title">揭曉方式（四種比較）</div>
+        <button data-mode="0">原版</button>
+        <button data-mode="1">① 空格彈出</button>
+        <button data-mode="2">② 圖示後＋煙霧</button>
+        <button data-mode="3">③ 煙霧統一開</button>
+        <button data-mode="4">④ 建議版（逐輪開）</button>
+        <div id="rvDesc"></div>
+        <div id="rvNote"></div>
+    </div>
 
     <div id="tunePanel">
         <button id="tuneClose" title="關閉面板">✕</button>
@@ -574,6 +611,20 @@ const DEFAULT_FX = {
   smokeSize:     95,     // 煙霧擴散最大半徑（px）
   popoutHeight:  95,     // 收集物彈出高度（px）
   popoutDur:      0.70,  // 收集物彈出到落定時長（秒）
+  // 揭曉方式四種比較（右上角切換，下一局生效）：0 原版／1 空格彈出／2 圖示後＋煙霧／3 煙霧統一開／4 建議版
+  rvMode:         1,
+  fcRate:         0.60,  // 底下藏有預報對象時，顯示預報框的機率（企劃書 60%）
+  heatKey:        2,     // 手甲收到幾個進入「緊張」（差 1 個就開 FREE SPINS）
+  heatJP:         3,     // 皇冠／羽扇收到幾個進入「緊張」（差 1 個就宙斯／赫拉）
+  m1Hold:         0.50,  m1HoldHot:  1.00, m1Pop:   0.40,   // ① 空格停留（一般／緊張）、彈出時長
+  m2Smoke:        0.70,  m2SmokeHot: 1.40, m2Ghost: 0.35,   // ② 煙霧散開（一般／緊張）、煙中若隱若現濃度
+  m3Hold:         0.50,  m3HoldHot:  1.10, m3Open:  0.30,   // ③ 煙霧蓋住停留（一般／緊張）、統一打開時長
+  m4Col:          0.10,  m4ColHot:   0.80, m4Glow:  0.40, m4Open: 0.25, // ④ 每輪開啟間隔（一般／緊張）、開前發光、開啟時長
+  rvItemHold:     0.45,  // 揭曉後停留多久才飛向收集處
+  hidMult:        0.22,  // 每個圖示底下藏隨機倍數的機率（倍數大小沿用原權重表）
+  hidWild:        0.03,  // 藏 WILD
+  hidKey:         0.025, // 藏阿瑞斯手甲（FREE SPINS 中不出）
+  hidJP:          0.012, // 藏皇冠或羽扇（本局只出其中一種）
 };
 
 // 面板顯示：分組、中文名、[min, max, step]（省略＝節奏 0~5 秒 / 步進 0.05）
@@ -623,6 +674,17 @@ const FX_META = [
     ['smokeFastLife','一般格煙霧散開(秒)', 0.1, 3, 0.05], ['smokeSlowLife','收集物格煙霧散開(秒)', 0.2, 6, 0.05],
     ['smokeSize','煙霧擴散半徑(px)', 20, 200, 5],
     ['popoutHeight','彈出高度(px)', 0, 250, 5], ['popoutDur','彈出落定時長(秒)', 0.2, 2, 0.05]] },
+  { group: '揭曉方式（四種比較；右上角切換）', items: [
+    ['fcRate','預報框出現機率', 0, 1, 0.05],
+    ['heatKey','緊張門檻：手甲數', 1, 4, 1], ['heatJP','緊張門檻：皇冠／羽扇數', 1, 4, 1],
+    ['m1Hold','① 空格停留(秒)', 0, 3, 0.05], ['m1HoldHot','① 緊張時空格停留(秒)', 0, 4, 0.05], ['m1Pop','① 彈出時長(秒)', 0.1, 1.5, 0.05],
+    ['m2Smoke','② 煙霧散開(秒)', 0.1, 3, 0.05], ['m2SmokeHot','② 緊張時煙霧散開(秒)', 0.1, 4, 0.05], ['m2Ghost','② 煙中若隱若現濃度', 0, 1, 0.05],
+    ['m3Hold','③ 煙霧蓋住停留(秒)', 0, 3, 0.05], ['m3HoldHot','③ 緊張時蓋住停留(秒)', 0, 4, 0.05], ['m3Open','③ 統一打開時長(秒)', 0.1, 1.5, 0.05],
+    ['m4Col','④ 每輪開啟間隔(秒)', 0, 1, 0.01], ['m4ColHot','④ 緊張時每輪間隔(秒)', 0, 3, 0.05],
+    ['m4Glow','④ 開前發光(秒)', 0, 1.5, 0.05], ['m4Open','④ 開啟時長(秒)', 0.05, 1, 0.05],
+    ['rvItemHold','揭曉後停留(秒)', 0, 2, 0.05],
+    ['hidMult','藏倍數機率', 0, 0.6, 0.01], ['hidWild','藏 WILD 機率', 0, 0.3, 0.005],
+    ['hidKey','藏手甲機率', 0, 0.2, 0.005], ['hidJP','藏皇冠／羽扇機率', 0, 0.2, 0.002]] },
 ];
 
 const TIMING_RANGE = {};
@@ -721,7 +783,7 @@ let forecastNeedStrong = false;
 // 一般情況完全照原本的權重表；強開「必出預報框」時，只在各欄最後 ROWS 次捲動內
 // （＝這格必定會停在盤面上）補齊尚未出現的預報等級。
 // 這樣預報框是隨滾輪一起產生的，滾動當下就跟著圖示顯示，而不是停輪後才補上去。
-function rollSpinMult(c) {
+function forecastForcedMult(c) {
   if (forceSpinType === 'forecast' && (forecastNeedWeak || forecastNeedStrong)) {
     // 這顆是「上方預備格」，會在下一次捲動才進入盤面，之後每捲動一次下移一列。
     // 剩餘捲動次數 n：n=0 代表這顆不會進盤面；1~ROWS 會停在 row (n-1)；>ROWS 會被推出去。
@@ -735,11 +797,20 @@ function rollSpinMult(c) {
       return FORECAST_WEAK_OPTS[Math.floor(Math.random() * FORECAST_WEAK_OPTS.length)];
     }
   }
-  return rollCellMult();
+  return 0;
+}
+function rollSpinMult(c) {
+  return forecastForcedMult(c) || rollCellMult();
 }
 
-// 產生一顆滾動中的新圖示（含隱藏倍數）
+// 產生一顆滾動中的新圖示（含隱藏倍數；新版揭曉方式另含底下藏的特殊物件）
 function makeSpinCell(c) {
+  if (rvActive > 0) {
+    const cell = newHiddenCell(Math.floor(Math.random() * SYMBOLS.length));
+    const f = forecastForcedMult(c);
+    if (f) { cell.mult = f; cell.hid = 0; cell.fcShow = true; }
+    return cell;
+  }
   return { id: Math.floor(Math.random() * SYMBOLS.length), mult: rollSpinMult(c),
            yOffset: 0, isMatched: false, scale: 1, _flash: false };
 }
@@ -758,6 +829,126 @@ function forecastLevelByMult(mult) {
 // 註：收集物（皇冠／項鍊／號角）的預報門檻（第 1~2 顆弱、第 3~4 顆強）尚未實作。
 // 本 DEMO 的收集物是「消除後於底列生成並立即飛出收集」，沒有藏在圖示底下等待揭曉的階段，
 // 預報框無顯示時間；待機制對齊 260810 規格（特殊物件藏於圖示底下）後再補。
+// → 已由下方「揭曉方式 ①～④」實作（原版 0 仍維持上述行為）。
+
+// ============================================================
+// === 揭曉方式四種比較（2026-10-16）===========================
+// 0 原版：維持原本流程（倍數藏在圖示、其他物件只在消除的底列格抽）。
+// 1~4 新版：五種特殊物件都藏在圖示底下（企劃書規格），得分消除後揭曉；四種只差「揭曉演出」。
+//   ① 空格彈出：爆掉後空格停留，物件從空格彈出；緊張時停更久；預報框畫在空格上。
+//   ② 圖示後＋煙霧：落定就在圖示上掛預報框；爆掉後原地留煙，煙中若隱若現，煙散開才完全露出。
+//   ③ 煙霧統一開：爆掉後每個洞蓋一層煙，停一下後全部同時打開；預報框畫在煙上。
+//   ④ 建議版：煙蓋住後像停輪一樣第 1~5 輪依序打開；緊張時後面幾輪慢開（緩停框），開之前煙裡發光＝預報。
+// 預報對象：手甲／皇冠／羽扇全部、隨機倍數 10× 以上；WILD 不預報。
+//   弱＝倍數 10~25、收集物第 1~2 顆；強＝倍數 50 以上、收集物第 3~4 顆。
+//   每顆依 fcRate（預設 60%）決定要不要顯示；顯示即必準，不做落空。
+// 緊張：手甲 ≥ heatKey 且未滿 4，或 皇冠／羽扇 ≥ heatJP 且未滿 4（④ 會把同一次消除裡剛開出來的也算進去）。
+// 每局上限：手甲、皇冠、羽扇各 4 個；皇冠與羽扇每局只出其中一種（FREE SPINS 進場時決定一種）。
+// ============================================================
+const RV_MODE_NAMES = ['原版', '① 空格彈出', '② 圖示後＋煙霧', '③ 煙霧統一開', '④ 建議版'];
+let rvActive = 0;                 // 本局採用的揭曉方式（SPIN 當下鎖定，切換後下一局生效）
+let roundJPSide = SPECIAL.CROWN;  // 本局（或本段 FREE SPINS）只出皇冠或只出羽扇
+let rvSuppress = new Set();       // 強開時暫停自然出現的物件類型
+let teaseStage = 0;               // 手甲聽牌強開：1 等第一次消除／2 補盤已排好第二條線／3 之後自然
+let refillGen = 0;                // 補盤批次編號（判斷哪些格子是這次新補的）
+let HR = null;                    // 本次消除的揭曉狀態
+
+function rvMode() { return Math.max(0, Math.min(4, Math.round(FX.rvMode || 0))); }
+
+// 倍數大小：沿用原權重表（去掉「不出現」那列）的相對比例
+function rollMultValue() {
+  let total = 0;
+  for (const e of CELL_MULT_WEIGHTS) if (e.mult > 0) total += e.w;
+  let r = Math.random() * total;
+  for (const e of CELL_MULT_WEIGHTS) {
+    if (e.mult <= 0) continue;
+    r -= e.w;
+    if (r <= 0) return e.mult;
+  }
+  return 2;
+}
+
+// 新版：每個新圖示底下藏什麼（每格最多一種）
+function rollHidden() {
+  const none = { hid: 0, mult: 0 };
+  const r = Math.random();
+  let acc = FX.hidWild;
+  if (r < acc) return rvSuppress.has(SPECIAL.WILD) ? none : { hid: SPECIAL.WILD, mult: 0 };
+  acc += FX.hidKey;
+  if (r < acc) return (inFG || rvSuppress.has(SPECIAL.KEY)) ? none : { hid: SPECIAL.KEY, mult: 0 };
+  acc += FX.hidJP;
+  if (r < acc) return rvSuppress.has(roundJPSide) ? none : { hid: roundJPSide, mult: 0 };
+  acc += FX.hidMult;
+  if (r < acc) return { hid: 0, mult: rollMultValue() };
+  return none;
+}
+function newHiddenCell(id) {
+  const h = rollHidden();
+  return { id, mult: h.mult, hid: h.hid, fcShow: Math.random() < FX.fcRate,
+           yOffset: 0, isMatched: false, scale: 1, _flash: false };
+}
+
+const RV_TYPE = { [SPECIAL.WILD]: 'wild', [SPECIAL.KEY]: 'key', [SPECIAL.CROWN]: 'crown', [SPECIAL.NECKLACE]: 'necklace' };
+function hiddenItemOf(cell) {
+  if (!cell) return null;
+  if (cell.hid && RV_TYPE[cell.hid]) return { type: RV_TYPE[cell.hid] };
+  if (cell.mult > 0) return { type: 'mult', value: cell.mult };
+  return null;
+}
+// 已收集＋飛行中的數量
+function collectedOf(type) {
+  if (type === 'key')      return keyCount      + flyingAttacks.filter(f => f.isKey).length;
+  if (type === 'crown')    return crownCount    + flyingAttacks.filter(f => f.isCrown).length;
+  if (type === 'necklace') return necklaceCount + flyingAttacks.filter(f => f.isNecklace).length;
+  return 0;
+}
+// 預報等級：ordinal＝這顆是本局第幾顆（收集物用）
+function fcLevelOfItem(item, ordinal) {
+  if (!item) return FORECAST.NONE;
+  if (item.type === 'mult') return forecastLevelByMult(item.value);
+  if (item.type === 'wild') return FORECAST.NONE;
+  if (!ordinal || ordinal > 4) return FORECAST.NONE;
+  return ordinal >= 3 ? FORECAST.STRONG : FORECAST.WEAK;
+}
+// 緊張：差 1 個就升級（add＝同一次消除裡已經開出、還沒飛走的）
+function isHotWith(add) {
+  add = add || {};
+  const k  = collectedOf('key')      + (add.key || 0);
+  const cr = collectedOf('crown')    + (add.crown || 0);
+  const nk = collectedOf('necklace') + (add.necklace || 0);
+  if (!inFG && k >= FX.heatKey && k < 4) return true;
+  if (cr >= FX.heatJP && cr < 4) return true;
+  if (nk >= FX.heatJP && nk < 4) return true;
+  return false;
+}
+
+// 強開（新版）：停輪寫入強制連線時一併決定底下藏什麼，讓「落定就有預報框」的 ② 也看得到
+const RV_FORCE_COLS = { 1: [2], 2: [1, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4] };
+function rvForcedHidden(c) {
+  const t = forceSpinType;
+  if (!t) return null;
+  const at = n => (RV_FORCE_COLS[n] || []).includes(c);
+  if (t === 'wild')  return c === 2 ? SPECIAL.WILD : 0;
+  if (t === 'key_0') return at(3) ? SPECIAL.KEY : 0;
+  if (t === 'key_1') return at(4) ? SPECIAL.KEY : 0;
+  if (t === 'tease_hit' || t === 'tease_miss') return at(2) ? SPECIAL.KEY : 0;
+  if (t.startsWith('crown_'))    return at(parseInt(t.split('_')[1])) ? SPECIAL.CROWN : 0;
+  if (t.startsWith('necklace_')) return at(parseInt(t.split('_')[1])) ? SPECIAL.NECKLACE : 0;
+  return 0;
+}
+
+// 盤面上（含滾動中預備格）每顆收集物是本局第幾顆：已收集＋洞裡還沒飛走的＋盤面上排在它前面的
+function landingOrdinals() {
+  const base = { key: collectedOf('key'), crown: collectedOf('crown'), necklace: collectedOf('necklace') };
+  if (HR) HR.holes.forEach(h => { if (h.item && !h.fired && base[h.item.type] !== undefined) base[h.item.type]++; });
+  const map = new Map();
+  for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
+    const cell = board[c] && board[c][r];
+    const it = hiddenItemOf(cell);
+    if (it && base[it.type] !== undefined) { base[it.type]++; map.set(cell, base[it.type]); }
+  }
+  return { map, base };
+}
 
 // === 特效強度分級（美術需求說明 編號11-1／11-3）===
 // 得分框與消除特效共用同一套「單線得分金額區間」判準，兩者同級連動。
@@ -772,7 +963,8 @@ function winTierByLineWin(lineWin) {
 // 狀態機
 const STATE = {
   IDLE:0, SPINNING:1, CHECKING:2, SHOWING_WIN:3,
-  POPPING:4, GRAVITY:5, REVEALING:6, UNLOCK_ANIM:7
+  POPPING:4, GRAVITY:5, REVEALING:6, UNLOCK_ANIM:7,
+  HOLE_REVEAL:8   // 新版揭曉方式 ①～④ 的消除後揭曉
 };
 
 // ---- 遊戲狀態 ----
@@ -1068,6 +1260,23 @@ function startSpin() {
   resetRoundState();
   stats.spins++;
 
+  // 揭曉方式：SPIN 當下鎖定本局用哪一種（中途切換下一局才生效）
+  rvActive = rvMode();
+  HR = null;
+  rvSuppress = new Set();
+  teaseStage = 0;
+  if (!inFG) roundJPSide = Math.random() < 0.5 ? SPECIAL.CROWN : SPECIAL.NECKLACE;
+  if (rvActive > 0 && forceSpinType) {
+    // 強開指定數量時，暫停同類物件自然出現，數量才會剛好
+    if (forceSpinType.startsWith('key_')) rvSuppress.add(SPECIAL.KEY);
+    if (forceSpinType.startsWith('tease_') && !inFG) {
+      rvSuppress.add(SPECIAL.KEY); rvSuppress.add(SPECIAL.WILD);
+      teaseStage = 1;
+    }
+    if (forceSpinType.startsWith('crown_'))    { if (!inFG) roundJPSide = SPECIAL.CROWN;    rvSuppress.add(SPECIAL.CROWN); }
+    if (forceSpinType.startsWith('necklace_')) { if (!inFG) roundJPSide = SPECIAL.NECKLACE; rvSuppress.add(SPECIAL.NECKLACE); }
+  }
+
   // 強開：SPIN 開始時預先決定強制中獎的 payline 與符號
   forcedMult = 0;
   forceKeyTarget = 0;
@@ -1153,7 +1362,11 @@ function updateSpinning() {
           // 倍數強開：中間欄（c=2）寫入預抽倍數，其他欄 mult=0
           const isMultForce = (forceSpinType === 'mult' || forceSpinType === 'fg_test' || (inFG && fgAssistMode));
           const cellMult = (isMultForce && c === 2 && !forceUsed) ? forcedMult : 0;
-          board[c][forceLineRows[c]] = { id: forceLineSymbol, mult: cellMult, yOffset: 0, isMatched: false, scale: 1, _flash: false };
+          // 新版揭曉方式：強制連線的格子同時決定底下藏什麼（強開的物件一律顯示預報框）
+          let fh = rvActive > 0 ? rvForcedHidden(c) : 0;
+          if (fh === SPECIAL.KEY && inFG) fh = 0;
+          board[c][forceLineRows[c]] = { id: forceLineSymbol, mult: fh ? 0 : cellMult, hid: fh, fcShow: true,
+                                         yOffset: 0, isMatched: false, scale: 1, _flash: false };
           if (isMultForce && c === 2) forceUsed = true;
         }
         if (forceLineRows2) {
@@ -1307,6 +1520,8 @@ function endRound() {
   }
 
   // ── NG 流程 ──
+  // 手甲聽牌強開：用一次就收掉（避免進 FREE SPINS 後每局都被強制連線）
+  if (forceSpinType && forceSpinType.startsWith('tease_')) forceSpinType = null;
   const savedKeyCount = keyCount;
   keyCount = 0;
 
@@ -1430,6 +1645,9 @@ function updatePopping() {
     if (popWaitTimer === 1) spawnPopParticles();
     return;
   }
+
+  // 新版揭曉方式 ①～④：改走洞的揭曉流程
+  if (rvActive > 0) { popWaitTimer = 0; startHoleReveal(); return; }
 
   // Phase 2: 清除符號 → 進入 REVEALING
   // 帶倍數格子：保留在盤面（_multWaiting=true），由 REVEALING Phase A 逐一處理
@@ -1626,6 +1844,7 @@ function drawParticles(ctx) {
 }
 
 function applyGravity() {
+  refillGen++;
   for (let c = 0; c < COLS; c++) {
     let emptySpaces = 0;
     for (let r = ROWS - 1; r >= 0; r--) {
@@ -1641,12 +1860,33 @@ function applyGravity() {
       const isKeyOrWild = (i === ROWS - 1) &&
         (bottomSpecial[c] === SPECIAL.KEY || bottomSpecial[c] === SPECIAL.WILD ||
          bottomSpecial[c] === SPECIAL.CROWN || bottomSpecial[c] === SPECIAL.NECKLACE);
+      if (rvActive > 0) {
+        // 新版揭曉方式：新補入的圖示底下同樣可能藏特殊物件
+        board[c][i] = Object.assign(newHiddenCell(randomSymId()),
+          { yOffset: -(emptySpaces - i) * CELL_SIZE - 20, _gen: refillGen });
+        continue;
+      }
       board[c][i] = {
         id: randomSymId(),
         mult: isKeyOrWild ? 0 : rollCellMult(),
         yOffset: -(emptySpaces - i) * CELL_SIZE - 20,
         isMatched: false, scale: 1, _flash: false
       };
+    }
+  }
+
+  // 手甲聽牌強開：第一次消除（給 2 個手甲）後，最上排排成第二條線；
+  // 「中」在第 5 輪底下藏第 3 個手甲，「落空」什麼都不藏
+  if (rvActive > 0 && teaseStage === 1) {
+    let ok = true;
+    for (let c = 0; c < COLS; c++) if (!board[c][0] || board[c][0]._gen !== refillGen) ok = false;
+    if (ok) {
+      const sym = 3;  // 蜥蜴人
+      for (let c = 0; c < COLS; c++) Object.assign(board[c][0], { id: sym, mult: 0, hid: 0 });
+      if (forceSpinType === 'tease_hit') Object.assign(board[COLS - 1][0], { hid: SPECIAL.KEY, fcShow: true });
+      teaseStage = 2;
+    } else {
+      teaseStage = 3;
     }
   }
 }
@@ -1876,6 +2116,372 @@ function updateRevealing() {
   if (flyingMultipliers.some(f => f.progress < 1)) return;
   if (flyingAttacks.some(k => k.progress < 1)) return;
   applyGravity(); currentState = STATE.GRAVITY;
+}
+
+// ============================================================
+// === 揭曉方式 ①～④：消除後的洞（流程）=========================
+// ============================================================
+const RV_COVER_FORM = 0.15;   // ③④ 煙霧蓋上所需時間（秒）
+
+function startHoleReveal() {
+  const seen = new Set();
+  const holes = [];
+  winLines.forEach(wl => wl.cells.forEach(({ c, r }) => {
+    const k = c * 10 + r;
+    if (seen.has(k)) return;
+    seen.add(k);
+    const cell = board[c][r];
+    holes.push({ c, r, item: hiddenItemOf(cell), fcShow: !!(cell && cell.fcShow), fc: FORECAST.NONE,
+                 ord: 0, openAt: -1, fired: false, seed: Math.random() * Math.PI * 2 });
+    board[c][r] = { id: -1, mult: 0, hid: 0, yOffset: 0, isMatched: false, scale: 1, _flash: false };
+  }));
+  holes.sort((a, b) => a.c !== b.c ? a.c - b.c : a.r - b.r);
+
+  // 依揭曉順序算「本局第幾顆」：決定預報強弱，超過每局上限 4 個的不出
+  const run = { key: collectedOf('key'), crown: collectedOf('crown'), necklace: collectedOf('necklace') };
+  holes.forEach(h => {
+    const it = h.item;
+    if (!it) return;
+    if (it.type === 'key' && inFG) { h.item = null; return; }
+    if (run[it.type] !== undefined) {
+      run[it.type]++;
+      if (run[it.type] > 4) { h.item = null; return; }
+      h.ord = run[it.type];
+    }
+    h.fc = h.fcShow ? fcLevelOfItem(it, h.ord) : FORECAST.NONE;
+  });
+  if (teaseStage === 2) teaseStage = 3;
+
+  HR = { mode: rvActive, holes, cols: [...new Set(holes.map(h => h.c))].sort((a, b) => a - b),
+         t: 0, phase: 'reveal', hot: isHotWith(), hasItem: holes.some(h => h.item),
+         showT: 0, showLen: 0, fireList: [], fireIdx: 0, fireT: 0,
+         colIdx: 0, colCur: -1, colT: 0, colWait: 0, colHot: false,
+         add: { key: 0, crown: 0, necklace: 0 } };
+  if (HR.mode === 2) HR.smokeDur = TF(HR.hot ? FX.m2SmokeHot : FX.m2Smoke);
+  if (HR.mode === 4) {
+    if (HR.cols.length) rvPlanColumn(); else rvToShow(0);
+  }
+  currentState = STATE.HOLE_REVEAL;
+}
+
+// ④：排下一輪什麼時候開。緊張（含這次已開出的）→ 慢開；有預報的那一輪至少留夠發光時間
+function rvPlanColumn() {
+  if (HR.colIdx >= HR.cols.length) { HR.colCur = -1; return; }
+  const c = HR.cols[HR.colIdx];
+  const hot = isHotWith(HR.add);
+  const form = HR.colIdx === 0 ? TF(RV_COVER_FORM) : 0;
+  let wait = form + TF(hot ? FX.m4ColHot : FX.m4Col);
+  if (HR.holes.some(h => h.c === c && h.fc !== FORECAST.NONE)) wait = Math.max(wait, form + TF(FX.m4Glow));
+  Object.assign(HR, { colCur: c, colT: 0, colWait: wait, colHot: hot });
+}
+
+function rvOpenAll() { HR.holes.forEach(h => { if (h.openAt < 0) h.openAt = HR.t; }); }
+function rvToShow(openLen) {
+  HR.phase = 'show';
+  HR.showT = 0;
+  HR.showLen = openLen + (HR.hasItem ? TF(FX.rvItemHold) : 0);
+}
+
+function updateHoleReveal() {
+  if (!HR) { applyGravity(); currentState = STATE.GRAVITY; return; }
+  HR.t++;
+  const m = HR.mode;
+
+  if (HR.phase === 'reveal') {
+    if (m === 1) {
+      if (HR.t >= TF(HR.hot ? FX.m1HoldHot : FX.m1Hold)) { rvOpenAll(); rvToShow(HR.hasItem ? TF(FX.m1Pop) : 0); }
+    } else if (m === 2) {
+      if (HR.t >= HR.smokeDur) { rvOpenAll(); rvToShow(0); }
+    } else if (m === 3) {
+      if (HR.t >= TF(RV_COVER_FORM) + TF(HR.hot ? FX.m3HoldHot : FX.m3Hold)) { rvOpenAll(); rvToShow(TF(FX.m3Open)); }
+    } else {
+      HR.colT++;
+      if (HR.colT >= HR.colWait) {
+        HR.holes.forEach(h => {
+          if (h.c !== HR.colCur) return;
+          h.openAt = HR.t;
+          if (h.item && HR.add[h.item.type] !== undefined) HR.add[h.item.type]++;
+        });
+        HR.colIdx++;
+        rvPlanColumn();
+        if (HR.colIdx >= HR.cols.length) rvToShow(TF(FX.m4Open));
+      }
+    }
+    return;
+  }
+
+  if (HR.phase === 'show') {
+    if (++HR.showT >= HR.showLen) {
+      HR.phase = 'fire';
+      HR.fireList = HR.holes.filter(h => h.item);
+      HR.fireIdx = 0;
+      HR.fireT = 0;
+    }
+    return;
+  }
+
+  // fire：依序（盤面左→右、上→下）飛向收集處，WILD 轉為整格 WILD
+  if (HR.fireIdx < HR.fireList.length) {
+    if (HR.fireT > 0) { HR.fireT--; return; }
+    rvFire(HR.fireList[HR.fireIdx++]);
+    HR.fireT = FIRE_INTERVAL;
+    return;
+  }
+  if (flyingMultipliers.some(f => f.progress < 1)) return;
+  if (flyingAttacks.some(k => k.progress < 1)) return;
+  HR = null;
+  applyGravity();
+  currentState = STATE.GRAVITY;
+}
+
+function rvFire(h) {
+  const fx = GRID_X + h.c * CELL_SIZE + CELL_SIZE / 2;
+  const fy = GRID_Y + h.r * CELL_SIZE + CELL_SIZE / 2;
+  const it = h.item;
+  h.fired = true;
+  if (it.type === 'mult') {
+    flyingMultipliers.push({ value: it.value, x: fx, y: fy, sx: fx, sy: fy,
+      tx: FLY_TARGET.mult.x, ty: FLY_TARGET.mult.y, progress: 0 });
+  } else if (it.type === 'key')      collectKey(fx, fy);
+  else if (it.type === 'crown')      collectCrown(fx, fy);
+  else if (it.type === 'necklace')   collectNecklace(fx, fy);
+  else if (it.type === 'wild') {
+    board[h.c][h.r] = { id: WILD_ID, mult: 0, hid: 0, yOffset: 0, isMatched: false, scale: 1, _flash: false };
+  }
+}
+
+// ============================================================
+// === 揭曉方式 ①～④：消除後的洞（繪製）=========================
+// ============================================================
+function rvEaseOutBack(k) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); }
+
+// 洞裡的特殊物件（倍數底板＋數字／手甲／皇冠／羽扇／WILD）
+function drawRvItem(ctx, item, cx, cy, scale, alpha) {
+  if (!item || alpha <= 0.01 || scale <= 0.01) return;
+  const size = (CELL_SIZE - 8) * scale;
+  let img = null;
+  if (item.type === 'mult')          img = multBaseAsset(item.value);
+  else if (item.type === 'key')      img = ASSETS.gauntlet;
+  else if (item.type === 'crown')    img = ASSETS.crown;
+  else if (item.type === 'necklace') img = ASSETS.fan;
+  else if (item.type === 'wild')     img = ASSETS.wild;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, alpha);
+  if (item.type === 'mult') {
+    const bw = size + 8, bh = bw * (128 / 142);
+    if (img) ctx.drawImage(img, cx - bw / 2, cy - bh / 2, bw, bh);
+    ctx.fillStyle = '#fff6d5';
+    ctx.font = `bold ${Math.max(8, Math.round(34 * scale))}px Georgia`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.75)';
+    ctx.shadowBlur = 5;
+    ctx.fillText(item.value + 'X', cx, cy + 2);
+  } else if (img) {
+    ctx.drawImage(img, cx - size / 2 - 4, cy - size / 2 - 4, size + 8, size + 8);
+  } else {
+    const label = { key: '📯', crown: '👑', necklace: '📿', wild: 'W' }[item.type] || '?';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `bold ${Math.max(8, Math.round(34 * scale))}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, cy);
+  }
+  ctx.restore();
+}
+
+// 柔邊煙團（② 原地留煙、③④ 打開時往外散）
+function drawSmokeCloud(ctx, cx, cy, density, seed, spread) {
+  if (density <= 0.01) return;
+  const t = Date.now() / 1000;
+  spread = spread || 1;
+  ctx.save();
+  for (let i = 0; i < 6; i++) {
+    const ang = seed + i * 1.047 + t * (i % 2 ? 0.45 : -0.35);
+    const off = (14 + (i % 3) * 9) * spread;
+    const bx = cx + Math.cos(ang) * off, by = cy + Math.sin(ang) * off * 0.8;
+    const rad = (48 + (i % 3) * 12) * (0.75 + 0.25 * spread);
+    const sh = 128 + (i % 3) * 20;
+    const a = 0.62 * density;
+    const g = ctx.createRadialGradient(bx, by, 0, bx, by, rad);
+    g.addColorStop(0,   `rgba(${sh},${sh - 6},${sh - 16},${a})`);
+    g.addColorStop(0.6, `rgba(${sh},${sh - 6},${sh - 16},${a * 0.55})`);
+    g.addColorStop(1,   `rgba(${sh},${sh - 6},${sh - 16},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(bx, by, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ③④ 的「蓋子」：整格不透明的煙，完全看不到底下
+function drawSmokeCover(ctx, x, y, f, seed, jx, jy) {
+  const cx = x + CELL_SIZE / 2 + jx, cy = y + CELL_SIZE / 2 + jy;
+  ctx.save();
+  ctx.globalAlpha = f;
+  const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, CELL_SIZE * 0.62);
+  g.addColorStop(0,    'rgba(72,66,60,0.97)');
+  g.addColorStop(0.75, 'rgba(48,43,38,0.96)');
+  g.addColorStop(1,    'rgba(30,27,24,0.94)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.roundRect(x + 5 + jx, y + 5 + jy, CELL_SIZE - 10, CELL_SIZE - 10, 16);
+  ctx.fill();
+  ctx.restore();
+  drawSmokeCloud(ctx, cx, cy, f * 0.9, seed, 0.75);
+}
+
+// ④ 開之前「煙裡透出光」：弱＝藍光、強＝金光＋光芒，外加預報框
+function drawRvGlow(ctx, x, y, lv, g) {
+  const st = FORECAST_STYLE[lv];
+  if (!st || g <= 0) return;
+  const strong = lv === FORECAST.STRONG;
+  const cx = x + CELL_SIZE / 2, cy = y + CELL_SIZE / 2;
+  const now = Date.now();
+  const p = 0.75 + 0.25 * Math.sin(now / (strong ? 60 : 110));
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const rg = ctx.createRadialGradient(cx, cy, 4, cx, cy, CELL_SIZE * (strong ? 0.8 : 0.6));
+  rg.addColorStop(0,   `rgba(${st.rgb},${0.9 * g * p})`);
+  rg.addColorStop(0.5, `rgba(${st.rgb},${0.35 * g * p})`);
+  rg.addColorStop(1,   `rgba(${st.rgb},0)`);
+  ctx.fillStyle = rg;
+  ctx.fillRect(x - 50, y - 50, CELL_SIZE + 100, CELL_SIZE + 100);
+  if (strong) {
+    ctx.strokeStyle = `rgba(${st.rgb},${0.55 * g})`;
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 8; i++) {
+      const a = now / 700 + i * Math.PI / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 22, cy + Math.sin(a) * 22);
+      ctx.lineTo(cx + Math.cos(a) * (70 + 12 * p), cy + Math.sin(a) * (70 + 12 * p));
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  drawForecastFrameAt(ctx, x, y, lv, g);
+}
+
+function drawHoleReveal(ctx) {
+  if (currentState !== STATE.HOLE_REVEAL || !HR) return;
+  const m = HR.mode, now = Date.now();
+  const formK = Math.min(1, HR.t / Math.max(1, TF(RV_COVER_FORM)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(GRID_X, GRID_Y, GRID_W, GRID_H);
+  ctx.clip();
+
+  HR.holes.forEach(h => {
+    const x = GRID_X + h.c * CELL_SIZE, y = GRID_Y + h.r * CELL_SIZE;
+    const cx = x + CELL_SIZE / 2, cy = y + CELL_SIZE / 2;
+    const since = h.openAt >= 0 ? HR.t - h.openAt : -1;
+    const showItem = h.item && !h.fired;
+
+    // 洞底（壓暗，讓「這裡空了」看得出來）
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.beginPath();
+    ctx.roundRect(x + 6, y + 6, CELL_SIZE - 12, CELL_SIZE - 12, 12);
+    ctx.fill();
+
+    if (m === 1) {
+      // ① 空格：停留期間只有空格（＋預報框），時間到物件從格子彈出
+      if (since < 0) {
+        if (HR.hot) {
+          const p = 0.5 + 0.5 * Math.sin(now / 120 + h.seed);
+          ctx.save();
+          ctx.strokeStyle = '#ff7a3d';   // 緊張用橘紅，與金色強框分開
+          ctx.globalAlpha = 0.35 + 0.45 * p;
+          ctx.shadowColor = '#ff7a3d';
+          ctx.shadowBlur = 20 * p;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.roundRect(x + 6, y + 6, CELL_SIZE - 12, CELL_SIZE - 12, 12);
+          ctx.stroke();
+          ctx.restore();
+        }
+        if (h.fc) drawForecastFrameAt(ctx, x, y, h.fc, formK);
+      } else {
+        if (h.fc) drawForecastFrameAt(ctx, x, y, h.fc, 1);
+        if (showItem) {
+          const k = Math.min(1, since / Math.max(1, TF(FX.m1Pop)));
+          const s = k < 0.6 ? 0.2 + 0.95 * (1 - Math.pow(1 - k / 0.6, 2)) : 1.15 - 0.15 * ((k - 0.6) / 0.4);
+          drawRvItem(ctx, h.item, cx, cy - 26 * Math.sin(k * Math.PI), s, 1);
+          if (k < 0.4) {
+            ctx.save();
+            ctx.globalAlpha = (0.4 - k) * 1.6;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 20 + 60 * k, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+    } else if (m === 2) {
+      // ② 原地留煙：煙濃時物件若隱若現（忽明忽暗），煙散開後完整露出；落定時的預報框一路留到揭曉
+      const k = Math.min(1, HR.t / Math.max(1, HR.smokeDur));
+      if (showItem) {
+        const flick = 0.65 + 0.35 * Math.sin(now / 85 + h.seed * 3);
+        const a = since >= 0 ? 1
+          : (k < 0.55 ? FX.m2Ghost * flick * Math.min(1, HR.t / 6)
+                      : FX.m2Ghost + (1 - FX.m2Ghost) * ((k - 0.55) / 0.45));
+        drawRvItem(ctx, h.item, cx, cy, 0.92 + 0.08 * k, a);
+      }
+      drawSmokeCloud(ctx, cx, cy, since >= 0 ? 0 : 1 - Math.pow(k, 1.7), h.seed, 0.8 + 0.6 * k);
+      if (h.fc) drawForecastFrameAt(ctx, x, y, h.fc, since >= 0 ? Math.max(0, 1 - since / 12) : 1);
+    } else {
+      // ③④ 蓋子
+      if (since < 0) {
+        let jx = 0, jy = 0;
+        const shaking = (m === 3 && HR.hot) || (m === 4 && HR.colHot && h.c === HR.colCur);
+        if (shaking) { jx = Math.sin(now / 23 + h.seed) * 3; jy = Math.cos(now / 29 + h.seed) * 2; }
+        drawSmokeCover(ctx, x, y, formK, h.seed, jx, jy);
+        if (m === 3 && h.fc) drawForecastFrameAt(ctx, x, y, h.fc, formK);
+        if (m === 4 && h.fc && h.c === HR.colCur) {
+          const gs = HR.colWait - TF(FX.m4Glow);
+          if (HR.colT >= gs) drawRvGlow(ctx, x, y, h.fc, Math.min(1, (HR.colT - gs) / Math.max(1, TF(FX.m4Glow) * 0.5)));
+        }
+      } else {
+        const k = Math.min(1, since / Math.max(1, TF(m === 3 ? FX.m3Open : FX.m4Open)));
+        if (showItem) drawRvItem(ctx, h.item, cx, cy, 0.6 + 0.4 * rvEaseOutBack(k), Math.min(1, k * 1.6));
+        drawSmokeCloud(ctx, cx, cy, (1 - k) * 0.95, h.seed, 1 + 1.4 * k);   // 煙往外炸開散掉
+        if (k < 0.35) {
+          ctx.save();
+          ctx.globalAlpha = (0.35 - k) * 1.4;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 24 + 70 * k, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        if (h.fc && m === 3) drawForecastFrameAt(ctx, x, y, h.fc, 1 - k);
+        if (h.fc && m === 4) drawRvGlow(ctx, x, y, h.fc, 1 - k);
+      }
+    }
+  });
+
+  // ④ 緩停框：緊張時，正在等待打開的那一輪整條亮起（同停輪的緩停）
+  if (m === 4 && HR.phase === 'reveal' && HR.colHot && HR.colCur >= 0) {
+    const x = GRID_X + HR.colCur * CELL_SIZE;
+    const p = 0.5 + 0.5 * Math.sin(now / 90);
+    ctx.save();
+    const lg = ctx.createLinearGradient(0, GRID_Y + GRID_H, 0, GRID_Y);
+    lg.addColorStop(0, `rgba(255,170,40,${0.28 + 0.12 * p})`);
+    lg.addColorStop(1, 'rgba(255,170,40,0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(x + 4, GRID_Y + 4, CELL_SIZE - 8, GRID_H - 8);
+    ctx.strokeStyle = '#ffd24a';
+    ctx.shadowColor = '#ff9f1a';
+    ctx.shadowBlur = 18 + 22 * p;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = 0.65 + 0.35 * p;
+    ctx.beginPath();
+    ctx.roundRect(x + 3, GRID_Y + 3, CELL_SIZE - 6, GRID_H - 6, 14);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 // === JP 顯示條（倍數欄位左右兩側）===
@@ -3331,6 +3937,7 @@ function update(dt) {
     case STATE.POPPING:     updatePopping(); break;
     case STATE.GRAVITY:     updateGravity(); break;
     case STATE.REVEALING:   updateRevealing(); break;
+    case STATE.HOLE_REVEAL: updateHoleReveal(); break;
     case STATE.UNLOCK_ANIM: currentState = STATE.CHECKING; break;
     case STATE.IDLE:
       if (!erisMultiplierAnim.active && !multToScoreAnim.active && !pendingMultToScoreApply && !jpWinAnim.active && jpWinQueue.length === 0 && inFG && fgSpinsLeft > 0) {
@@ -3565,13 +4172,48 @@ let FORECAST_STYLE = {
   [FORECAST.STRONG]: { color: '#ffd700', rgb: '255,215,0',   lineW: 5, blur: [24, 44], speed: 105, fill: 0.16, corner: true  }, // 強框（強度：中）
 };
 
+// 單一格的預報框（弱／強），alpha 供淡入淡出
+function drawForecastFrameAt(ctx, x, y, lv, alpha) {
+  const st = FORECAST_STYLE[lv];
+  if (!st || alpha <= 0.01) return;
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / st.speed);
+  const blur  = st.blur[0] + (st.blur[1] - st.blur[0]) * pulse;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = `rgba(${st.rgb},${st.fill * (0.6 + 0.4 * pulse)})`;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.fill();
+
+  ctx.shadowColor = st.color; ctx.shadowBlur = blur;
+  ctx.strokeStyle = st.color; ctx.lineWidth = st.lineW;
+  ctx.globalAlpha = alpha * (0.8 + 0.2 * pulse);
+  ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 強框加四角刻痕，與弱框拉開層級（不做彈出，僅常駐強度差）
+  if (st.corner) {
+    const L = 12;
+    const x0 = x + 5, y0 = y + 5, x1 = x + CELL_SIZE - 5, y1 = y + CELL_SIZE - 5;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = alpha * (0.85 + 0.15 * pulse);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + L); ctx.lineTo(x0, y0); ctx.lineTo(x0 + L, y0);
+    ctx.moveTo(x1 - L, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + L);
+    ctx.moveTo(x0, y1 - L); ctx.lineTo(x0, y1); ctx.lineTo(x0 + L, y1);
+    ctx.moveTo(x1 - L, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 - L);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawForecastFrames(ctx) {
+  // 新版 ①③④：預報改畫在消除後的洞上（drawHoleReveal）；只有 ② 在落定的圖示上掛框
+  if (rvActive > 0 && rvActive !== 2) return;
+  const ords = rvActive === 2 ? landingOrdinals() : null;
+
   ctx.save();
   ctx.beginPath();
   ctx.rect(GRID_X, GRID_Y, GRID_W, GRID_H);
   ctx.clip();
-
-  const now = Date.now();
 
   for (let c = 0; c < COLS; c++) {
     const spinOff = (colStates[c] !== 'idle') ? (colOffsets[c] + colBounce[c]) : 0;
@@ -3579,38 +4221,19 @@ function drawForecastFrames(ctx) {
       // r = -1 是滾動中的上方預備格，讓預報框跟著圖示一起滑入
       const cell = (r < 0) ? (colStates[c] !== 'idle' ? spinBuffer[c] : null) : board[c][r];
       if (!cell || cell.id === -1) continue;
-      const lv = forecastLevelByMult(cell.mult);
+      let lv;
+      if (ords) {
+        // ②：五種物件都可能預報；底下有預報對象時，60%（fcRate）的那些才掛框
+        const it = hiddenItemOf(cell);
+        const ord = ords.map.get(cell) || (it && ords.base[it.type] !== undefined ? ords.base[it.type] + 1 : 0);
+        lv = (cell.fcShow && it) ? fcLevelOfItem(it, ord) : FORECAST.NONE;
+      } else {
+        lv = forecastLevelByMult(cell.mult);
+      }
       if (lv === FORECAST.NONE) continue;
-
-      const st = FORECAST_STYLE[lv];
-      const pulse = 0.5 + 0.5 * Math.sin(now / st.speed);
-      const blur  = st.blur[0] + (st.blur[1] - st.blur[0]) * pulse;
       const x = GRID_X + c * CELL_SIZE;
       const y = GRID_Y + r * CELL_SIZE + (cell.yOffset || 0) + spinOff;
-
-      ctx.fillStyle = `rgba(${st.rgb},${st.fill * (0.6 + 0.4 * pulse)})`;
-      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.fill();
-
-      ctx.shadowColor = st.color; ctx.shadowBlur = blur;
-      ctx.strokeStyle = st.color; ctx.lineWidth = st.lineW;
-      ctx.globalAlpha = 0.8 + 0.2 * pulse;
-      ctx.beginPath(); ctx.roundRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, 10); ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // 強框加四角刻痕，與弱框拉開層級（不做彈出，僅常駐強度差）
-      if (st.corner) {
-        const L = 12;
-        const x0 = x + 5, y0 = y + 5, x1 = x + CELL_SIZE - 5, y1 = y + CELL_SIZE - 5;
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 0.85 + 0.15 * pulse;
-        ctx.beginPath();
-        ctx.moveTo(x0, y0 + L); ctx.lineTo(x0, y0); ctx.lineTo(x0 + L, y0);
-        ctx.moveTo(x1 - L, y0); ctx.lineTo(x1, y0); ctx.lineTo(x1, y0 + L);
-        ctx.moveTo(x0, y1 - L); ctx.lineTo(x0, y1); ctx.lineTo(x0 + L, y1);
-        ctx.moveTo(x1 - L, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 - L);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
+      drawForecastFrameAt(ctx, x, y, lv, 1);
     }
   }
 
@@ -3855,7 +4478,7 @@ function drawBottomBar(ctx) {
   const _keyLabels = { forecast: '預報框', key_0: '厄倪俄10局', key_1: '厄倪俄15局',
     crown_1: '皇冠×1', crown_2: '皇冠×2', crown_3: '皇冠×3', crown_4: '皇冠×4',
     necklace_1: '項鍊×1', necklace_2: '項鍊×2', necklace_3: '項鍊×3', necklace_4: '項鍊×4',
-    fx_smoke: '煙霧慢散', fx_popout: '收集物彈出' };
+    fx_smoke: '煙霧慢散', fx_popout: '收集物彈出', tease_hit: '聽牌→中', tease_miss: '聽牌→落空' };
   const forceLabel = forceSpinType === 'mult' ? '倍數' : forceSpinType === 'wild' ? 'WILD' : _keyLabels[forceSpinType] || '未設定';
   ctx.fillText(forceLabel, F.x + F.w / 2, F.y + 40);
 
@@ -3887,6 +4510,8 @@ const FORCE_OPTIONS = [
   { label: '📿 項鍊 ×4', type: 'necklace_4' },
   { label: '💨 煙霧慢散', type: 'fx_smoke' },
   { label: '⤴️ 收集物彈出', type: 'fx_popout' },
+  { label: '🗡 手甲聽牌→中',   type: 'tease_hit'  },   // ①～④：先給 2 個手甲，下一次消除第 5 輪藏第 3 個
+  { label: '🗡 手甲聽牌→落空', type: 'tease_miss' },   // ①～④：先給 2 個手甲，下一次消除什麼都沒有
 ];
 const FORCE_MENU = { x: 52, w: 120, bottom: 842 };  // bottom＝強開按鈕上緣，選單往上長
 
@@ -4258,6 +4883,7 @@ function draw() {
   drawWinFrames(ctx);        // 得分框（三級強度）
   drawReelFrame(ctx);        // 盤面框蓋住盤面邊緣接縫
   drawRevealOverlay(ctx);
+  drawHoleReveal(ctx);       // 新版揭曉方式 ①～④：消除後的洞
   drawWinLines(ctx);
   drawParticles(ctx);
   drawScoreTexts(ctx);
@@ -4319,6 +4945,7 @@ canvas.addEventListener('click', e => {
     fgSpinsTotal = pendingFGRounds;
     autoSpinDelay = 0;
     multiplier = 1; // NG 累積倍數獨立結算，不帶入 FG
+    roundJPSide = Math.random() < 0.5 ? SPECIAL.CROWN : SPECIAL.NECKLACE; // FREE SPINS 進場時決定只出皇冠或羽扇
     startSpin();
     return;
   }
@@ -4677,6 +5304,30 @@ document.getElementById('tuneExport').addEventListener('click', function () {
 
 loadTuning();
 refreshTuneBody();
+
+// === 揭曉方式切換列（右上角）===
+const RV_DESC = [
+  '原本的流程：倍數藏在圖示底下；WILD／手甲／皇冠／羽扇只在被消除的最下排格子出現。',
+  '爆掉後空格停一下，物件從空格彈出。手甲 2 個（或皇冠／羽扇 3 個）時停更久、空格邊緣亮起。預報框畫在空格上。',
+  '落定就在圖示上掛預報框（60%）。爆掉後原地留煙，煙裡若隱若現，煙散開才完全露出。緊張時煙散得更慢。',
+  '爆掉後每個洞蓋一層煙，停一下後全部同時打開，沒東西就補盤。預報框畫在煙上。緊張時停更久、煙會抖。',
+  '煙蓋住後像停輪一樣第 1~5 輪依序打開。收集到差 1 個時，後面幾輪慢開＋緩停框（同一次消除開出的也算）。開之前煙裡發光＝預報。',
+];
+function updateRvBar(note) {
+  const m = rvMode();
+  document.querySelectorAll('#rvBar button[data-mode]').forEach(b => b.classList.toggle('active', +b.dataset.mode === m));
+  document.getElementById('rvDesc').textContent = RV_DESC[m];
+  document.getElementById('rvNote').textContent = note || '';
+}
+document.querySelectorAll('#rvBar button[data-mode]').forEach(b => b.addEventListener('click', () => {
+  FX.rvMode = +b.dataset.mode;
+  saveTuning();
+  if (tunePanelOpen && tuneTab === 'fx') refreshTuneBody();
+  const busy = currentState !== STATE.IDLE || inFG;
+  updateRvBar(busy ? '下一局生效' : '');
+}));
+document.getElementById('tuneReset').addEventListener('click', () => updateRvBar());
+updateRvBar();
 
 // === 遊戲主迴圈 ===
 let lastTime = 0;
