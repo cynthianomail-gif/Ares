@@ -970,7 +970,7 @@ function rvForcedHidden(c) {
   if (t === 'wild')  return c === 2 ? SPECIAL.WILD : 0;
   if (t === 'key_0') return at(3) ? SPECIAL.KEY : 0;
   if (t === 'key_1') return at(4) ? SPECIAL.KEY : 0;
-  if (t === 'tease_hit' || t === 'tease_miss') return at(2) ? SPECIAL.KEY : 0;
+  if (t.startsWith('tease_')) return at(2) ? SPECIAL.KEY : 0;
   if (t.startsWith('crown_'))    return at(parseInt(t.split('_')[1])) ? SPECIAL.CROWN : 0;
   if (t.startsWith('necklace_')) return at(parseInt(t.split('_')[1])) ? SPECIAL.NECKLACE : 0;
   return 0;
@@ -1931,6 +1931,7 @@ function applyGravity() {
       const sym = 3;  // 蜥蜴人
       for (let c = 0; c < COLS; c++) Object.assign(board[c][0], { id: sym, mult: 0, hid: 0 });
       if (forceSpinType === 'tease_hit') Object.assign(board[COLS - 1][0], { hid: SPECIAL.KEY, fcShow: true });
+      if (forceSpinType === 'tease_mid') Object.assign(board[2][0], { hid: SPECIAL.KEY, fcShow: true });   // 第 3 輪出，後面兩輪看得到恢復正常
       teaseStage = 2;
     } else {
       teaseStage = 3;
@@ -4734,7 +4735,7 @@ function drawBottomBar(ctx) {
   const _keyLabels = { forecast: '預報框', key_0: '厄倪俄10局', key_1: '厄倪俄15局',
     crown_1: '皇冠×1', crown_2: '皇冠×2', crown_3: '皇冠×3', crown_4: '皇冠×4',
     necklace_1: '項鍊×1', necklace_2: '項鍊×2', necklace_3: '項鍊×3', necklace_4: '項鍊×4',
-    fx_smoke: '煙霧慢散', fx_popout: '收集物彈出', tease_hit: '聽牌→中', tease_miss: '聽牌→落空' };
+    fx_smoke: '煙霧慢散', fx_popout: '收集物彈出', tease_hit: '聽牌→中', tease_mid: '聽牌→中3輪', tease_miss: '聽牌→落空' };
   const forceLabel = forceSpinType === 'mult' ? '倍數' : forceSpinType === 'wild' ? 'WILD' : _keyLabels[forceSpinType] || '未設定';
   ctx.fillText(forceLabel, F.x + F.w / 2, F.y + 40);
 
@@ -4766,7 +4767,8 @@ const FORCE_OPTIONS = [
   { label: '📿 項鍊 ×4', type: 'necklace_4' },
   { label: '💨 煙霧慢散', type: 'fx_smoke' },
   { label: '⤴️ 收集物彈出', type: 'fx_popout' },
-  { label: '🗡 手甲聽牌→中',   type: 'tease_hit'  },   // ①～④：先給 2 個手甲，下一次消除第 5 輪藏第 3 個
+  { label: '🗡 手甲聽牌→中',   type: 'tease_hit'  },   // ①～⑤：先給 2 個手甲，下一次消除第 5 輪藏第 3 個
+  { label: '🗡 聽牌→中(第3輪)', type: 'tease_mid'  },   // 同上，第 3 個藏在第 3 輪（⑤ 看得到「出 爆 爆」恢復正常）
   { label: '🗡 手甲聽牌→落空', type: 'tease_miss' },   // ①～④：先給 2 個手甲，下一次消除什麼都沒有
 ];
 const FORCE_MENU = { x: 52, w: 120, bottom: 842 };  // bottom＝強開按鈕上緣，選單往上長
