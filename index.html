@@ -568,6 +568,12 @@ const DEFAULT_FX = {
   flightTrail:   14,     // 拖尾取樣點數
   // 倍數欄區間強度（編號13）
   multLv1:       10, multLv2: 20, multLv3: 30, multLv4: 40,
+  // 爆破煙霧／收集物彈出（強開「煙霧慢散」「收集物彈出」試看用）
+  smokeFastLife:  0.45,  // 一般格煙霧散開時間（秒）
+  smokeSlowLife:  1.80,  // 有收集物的格子煙霧散開時間（秒）
+  smokeSize:     95,     // 煙霧擴散最大半徑（px）
+  popoutHeight:  95,     // 收集物彈出高度（px）
+  popoutDur:      0.70,  // 收集物彈出到落定時長（秒）
 };
 
 // 面板顯示：分組、中文名、[min, max, step]（省略＝節奏 0~5 秒 / 步進 0.05）
@@ -613,6 +619,10 @@ const FX_META = [
   { group: '倍數欄區間強度', items: [
     ['multLv1','LV1 門檻', 2, 100, 1], ['multLv2','LV2 門檻', 2, 200, 1],
     ['multLv3','LV3 門檻', 2, 300, 1], ['multLv4','LV4 門檻', 2, 500, 1]] },
+  { group: '爆破煙霧／收集物彈出（強開試看）', items: [
+    ['smokeFastLife','一般格煙霧散開(秒)', 0.1, 3, 0.05], ['smokeSlowLife','收集物格煙霧散開(秒)', 0.2, 6, 0.05],
+    ['smokeSize','煙霧擴散半徑(px)', 20, 200, 5],
+    ['popoutHeight','彈出高度(px)', 0, 250, 5], ['popoutDur','彈出落定時長(秒)', 0.2, 2, 0.05]] },
 ];
 
 const TIMING_RANGE = {};
@@ -899,6 +909,11 @@ let forceLineRows2 = null;    // key_3 強開時額外強制的第二列
 let forceLineSymbol = -1;     // 強開時決定的中獎符號 id
 let forcedMult = 0;           // 強開倍數模式預抽的倍數值
 let fgAssistMode = false;     // 強開厄倪俄進FG時：FG局數盡量有連線，且有機率帶倍數（測試用）
+// 強開「煙霧慢散」(fx_smoke)／「收集物彈出」(fx_popout)：底列連線爆破，中間欄藏一個皇冠
+const FX_DEMO_COL = 2;
+let revealExtraHold = 0;      // 本次揭曉額外延長的停留幀數（等煙霧散開／彈出落定）
+function isFxDemo() { return forceSpinType === 'fx_smoke' || forceSpinType === 'fx_popout'; }
+function revealHoldFrames() { return UNIFIED_HOLD_FRAMES + revealExtraHold; }
 
 let winLines = [];
 let winLog = []; // 連線消除紀錄 [{ count, symbolId, amount }]
@@ -1023,6 +1038,7 @@ function resetRoundState() {
   unifiedRevealSeq = [];
   unifiedRevealIdx = 0;
   unifiedRevealTimer = 0;
+  revealExtraHold = 0;
   forceUsed = false;
   forceKeySpawned = 0;
   forceLineRows = null;
@@ -1462,6 +1478,18 @@ function updatePopping() {
   unifiedRevealSeq = items;
   unifiedRevealIdx = 0;
   unifiedRevealTimer = 0;
+  // 特效試看：延長停留，讓煙霧散開／收集物彈出落定後才飛出
+  revealExtraHold = 0;
+  const demoItem = isFxDemo() && items.find(it => it.type === 'crown' && it.c === FX_DEMO_COL);
+  if (demoItem) {
+    if (forceSpinType === 'fx_popout') {
+      demoItem.popout = true;
+      revealExtraHold = Math.max(0, TF(FX.popoutDur) + 24 - UNIFIED_HOLD_FRAMES);
+    } else {
+      revealExtraHold = 0;  // 煙霧慢散：由 updateRevealing 等到慢散煙霧完全消失才收集
+      demoItem.waitSmoke = true;
+    }
+  }
 
   popWaitTimer = 0;
   currentState = STATE.REVEALING;
@@ -1509,14 +1537,43 @@ function spawnPopParticles() {
           size: 8, maxSize: t.ring, flash: t.flash
         });
       }
+      if (isFxDemo()) {
+        // 收集物在這一格（首次爆破、中間欄底列）且為「煙霧慢散」→ 濃煙、散得慢
+        const slow = forceSpinType === 'fx_smoke' && !forceUsed && c === FX_DEMO_COL && r === ROWS - 1;
+        spawnSmoke(px, py, slow);
+      }
     });
   });
   if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
 }
 
+// 爆破煙霧：數團柔邊煙球由格子中心擴散淡出；slow＝有收集物的格子，煙更濃、擴散與淡出都放慢
+function spawnSmoke(px, py, slow) {
+  const n = slow ? 10 : 6;
+  const baseLife = TF(slow ? FX.smokeSlowLife : FX.smokeFastLife);
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+    const spd = (slow ? 0.35 : 1.6) + Math.random() * (slow ? 0.35 : 1.2);
+    const life = Math.max(2, Math.round(baseLife * (0.85 + Math.random() * 0.25)));
+    const shade = 95 + Math.floor(Math.random() * 50);
+    particles.push({
+      type: 'smoke', slow,
+      x: px + Math.cos(ang) * (slow ? 8 : 14), y: py + Math.sin(ang) * (slow ? 8 : 14),
+      vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - (slow ? 0.15 : 0.3),
+      life, maxLife: life,
+      size: CELL_SIZE * (slow ? 0.30 : 0.22),
+      maxSize: FX.smokeSize * (slow ? 0.85 : 0.75) * (0.8 + Math.random() * 0.4),
+      color: `${shade},${shade - 8},${shade - 18}`
+    });
+  }
+}
+
 function updateParticles() {
   particles = particles.filter(p => {
     if (p.type === 'ring') { p.life--; return p.life > 0; }  // 衝擊環不受重力，只擴張淡出
+    if (p.type === 'smoke') {                                // 煙霧不受重力，減速漂散
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy *= 0.97; p.life--; return p.life > 0;
+    }
     p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; return p.life > 0;
   });
 }
@@ -1544,6 +1601,19 @@ function drawParticles(ctx) {
         ctx.fill();
       }
       ctx.shadowBlur = 0;
+    } else if (p.type === 'smoke') {
+      const t = 1 - p.life / p.maxLife;
+      const rad = p.size + (p.maxSize - p.size) * (1 - Math.pow(1 - t, 3));
+      // 慢散：前段維持濃度蓋住收集物，後段才淡開；快散：一路線性淡出
+      const a = p.slow ? 0.85 * (1 - Math.pow(t, 2.2)) : 0.6 * (1 - t);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rad);
+      g.addColorStop(0,   `rgba(${p.color},${a})`);
+      g.addColorStop(0.55, `rgba(${p.color},${a * 0.6})`);
+      g.addColorStop(1,   `rgba(${p.color},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.globalAlpha = p.life / p.maxLife;
       ctx.fillStyle = p.color;
@@ -1615,7 +1685,11 @@ function spawnBottomSpecials(affectedCols) {
     for (const { type, w } of SPECIAL_WEIGHTS) { rand -= w; if (rand <= 0) { chosen = type; break; } }
     // 強開覆蓋（KEY/WILD 才在底部特殊格處理；倍數已在 cell.mult 處理）
     // 'forecast'（必出預報框）不干預底列特殊格，維持自然隨機
-    if (forceSpinType && forceSpinType !== 'mult' && forceSpinType !== 'forecast') {
+    if (isFxDemo()) {
+      // 特效試看：只在中間欄放一個皇冠，其他欄不出特殊物件，畫面乾淨好比較
+      chosen = (!forceUsed && c === FX_DEMO_COL) ? SPECIAL.CROWN : SPECIAL.NONE;
+      if (chosen === SPECIAL.CROWN) forceUsed = true;
+    } else if (forceSpinType && forceSpinType !== 'mult' && forceSpinType !== 'forecast') {
       if (!forceUsed) {
         if (forceSpinType === 'wild') {
           chosen = SPECIAL.WILD; forceUsed = true;
@@ -1761,11 +1835,18 @@ function updateRevealing() {
 
   unifiedRevealTimer++;
 
+  // 煙霧慢散：慢散煙霧還沒完全散開前不收集；散完後再停 8 幀才飛出
+  if (unifiedRevealIdx === 0 && unifiedRevealSeq.some(it => it.waitSmoke) &&
+      particles.some(p => p.type === 'smoke' && p.slow)) {
+    revealExtraHold = Math.max(revealExtraHold, unifiedRevealTimer - UNIFIED_HOLD_FRAMES + 8);
+    return;
+  }
+
   // ── Phase 1：全局停留（所有指示器同時顯示）──
-  if (unifiedRevealTimer <= UNIFIED_HOLD_FRAMES) return;
+  if (unifiedRevealTimer <= revealHoldFrames()) return;
 
   // ── Phase 2：依序飛出（每隔 FIRE_INTERVAL 幀觸發一個）──
-  const fireTime = UNIFIED_HOLD_FRAMES + unifiedRevealIdx * FIRE_INTERVAL;
+  const fireTime = revealHoldFrames() + unifiedRevealIdx * FIRE_INTERVAL;
   if (unifiedRevealTimer <= fireTime) return;   // 等待輪到目前這個
 
   if (unifiedRevealIdx < unifiedRevealSeq.length) {
@@ -3546,7 +3627,7 @@ function drawRevealOverlay(ctx) {
   ctx.clip();
 
   const now = Date.now();
-  const isHoldPhase = unifiedRevealTimer <= UNIFIED_HOLD_FRAMES;
+  const isHoldPhase = unifiedRevealTimer <= revealHoldFrames();
   // Hold 期間：全部顯示；飛出期間：只顯示尚未飛出的
   const startIdx = isHoldPhase ? 0 : unifiedRevealIdx;
   const pulse = 0.75 + 0.25 * Math.sin(now / 110);
@@ -3557,6 +3638,8 @@ function drawRevealOverlay(ctx) {
     const y = GRID_Y + item.r * CELL_SIZE + 4;
     const w = CELL_SIZE - 8;
     const h = CELL_SIZE - 8;
+
+    if (item.popout) { drawPopoutItem(ctx, item, x, y, w, h, pulse); continue; }
 
     // 統一金色框樣式
     ctx.save();
@@ -3608,6 +3691,62 @@ function drawRevealOverlay(ctx) {
     ctx.restore();
   }
 
+  ctx.restore();
+}
+
+// 收集物彈出（強開「收集物彈出」）：從格子中心小小冒出 → 往上彈起放大 → 落回格子上回彈，落定後才亮金框
+function drawPopoutItem(ctx, item, x, y, w, h, pulse) {
+  const img = item.type === 'crown' ? ASSETS.crown : item.type === 'necklace' ? ASSETS.fan : ASSETS.gauntlet;
+  const k = Math.min(1, unifiedRevealTimer / TF(FX.popoutDur));
+  const H = FX.popoutHeight;
+  let lift, scale, squash = 0;
+  if (k < 0.45) {                       // 彈起：減速上升、由小放大
+    const u = k / 0.45;
+    lift = H * (1 - (1 - u) * (1 - u));
+    scale = 0.35 + 0.8 * u;
+  } else if (k < 0.75) {                // 落下：加速落回格子
+    const u = (k - 0.45) / 0.3;
+    lift = H * (1 - u * u);
+    scale = 1.15 - 0.15 * u;
+  } else {                              // 落地回彈：擠壓後衰減
+    const u = (k - 0.75) / 0.25;
+    lift = 0;
+    scale = 1;
+    squash = 0.14 * Math.sin(2 * Math.PI * u) * Math.pow(1 - u, 1.6);
+  }
+  const cx = x + w / 2, baseY = y + h;  // 以格子底緣為落點
+  ctx.save();
+  // 地面影子：越高越小越淡
+  const sh = 1 - lift / Math.max(1, H);
+  ctx.globalAlpha = 0.35 * (0.4 + 0.6 * sh);
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - 6, w * 0.32 * (0.5 + 0.5 * sh), 7 * (0.5 + 0.5 * sh), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  // 落定後才顯示金框（淡入）
+  if (k >= 0.75) {
+    const fa = Math.min(1, (k - 0.75) / 0.25);
+    ctx.globalAlpha = fa;
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 22 * pulse;
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, 8); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+  const dw = (w + 8) * scale * (1 + squash), dh = (h + 8) * scale * (1 - squash);
+  const by = baseY + 4 - lift;          // 圖底緣位置
+  if (img) {
+    ctx.drawImage(img, cx - dw / 2, by - dh, dw, dh);
+  } else {
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `bold ${Math.round(34 * scale)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.type === 'crown' ? '👑' : '📿', cx, by - dh / 2);
+  }
   ctx.restore();
 }
 
@@ -3715,7 +3854,8 @@ function drawBottomBar(ctx) {
   ctx.font = '11px Arial';
   const _keyLabels = { forecast: '預報框', key_0: '厄倪俄10局', key_1: '厄倪俄15局',
     crown_1: '皇冠×1', crown_2: '皇冠×2', crown_3: '皇冠×3', crown_4: '皇冠×4',
-    necklace_1: '項鍊×1', necklace_2: '項鍊×2', necklace_3: '項鍊×3', necklace_4: '項鍊×4' };
+    necklace_1: '項鍊×1', necklace_2: '項鍊×2', necklace_3: '項鍊×3', necklace_4: '項鍊×4',
+    fx_smoke: '煙霧慢散', fx_popout: '收集物彈出' };
   const forceLabel = forceSpinType === 'mult' ? '倍數' : forceSpinType === 'wild' ? 'WILD' : _keyLabels[forceSpinType] || '未設定';
   ctx.fillText(forceLabel, F.x + F.w / 2, F.y + 40);
 
@@ -3745,6 +3885,8 @@ const FORCE_OPTIONS = [
   { label: '📿 項鍊 ×2', type: 'necklace_2' },
   { label: '📿 項鍊 ×3', type: 'necklace_3' },
   { label: '📿 項鍊 ×4', type: 'necklace_4' },
+  { label: '💨 煙霧慢散', type: 'fx_smoke' },
+  { label: '⤴️ 收集物彈出', type: 'fx_popout' },
 ];
 const FORCE_MENU = { x: 52, w: 120, bottom: 842 };  // bottom＝強開按鈕上緣，選單往上長
 
